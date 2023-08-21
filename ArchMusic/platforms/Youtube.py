@@ -48,19 +48,21 @@ class YouTubeAPI:
         self.regex = r"(?:youtube\.com|youtu\.be)"
         self.status = "https://www.youtube.com/oembed?url="
         self.listbase = "https://youtube.com/playlist?list="
-        self.reg = re.compile(
-            r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"
-        )
+        self.reg = re.compile(r"\x1B[@-~]")
+
+    def exists(self, text):
+         return re.search(self.reg, text) is not None
 
     async def exists(
         self, link: str, videoid: Union[bool, str] = None
     ):
         if videoid:
             link = self.base + link
-        if re.search(self.regex, link):
+        if re.search(self.reg, link):
             return True
         else:
             return False
+
 
     async def url(self, message_1: Message) -> Union[str, None]:
         messages = [message_1]
