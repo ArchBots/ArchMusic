@@ -9,7 +9,7 @@ heroku3
 httpx
 lyricsgenius
 motor==3.2.0
-pillow==9.0.0
+pillow==9.3.0
 psutil
 py-tgcalls
 pykeyboard
