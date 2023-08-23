@@ -7,10 +7,11 @@
     "telegram",
     "bot",
     "telegram-bot",
-    "pyrogram"
-    "ArchBots"
+    "pyrogram",
+    "ArchBots",
     "ArchMusic"
-    ],
+],
+
     "stack": "container",
     "env": {
       "API_ID": {
