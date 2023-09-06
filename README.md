@@ -11,58 +11,58 @@
 * Loop, Seek, Shuffle, Specific Skip, Playlists etc support
 * Multi-Language support
 
+<!-- VPS Deployment -->
+<details>
+  <summary>🖇 VPS Deployment</summary>
 
+  1. Upgrade and Update:
+     <pre>
+     sudo apt-get update && sudo apt-get upgrade -y
+     </pre>
 
-## 🖇 VPS Deployment
+  2. Installing Required Packages:
+     <pre>
+     sudo apt-get install python3-pip ffmpeg -y
+     </pre>
 
-1.  Upgrade and Update:
+  3. Setting up PIP:
+     <pre>
+     sudo pip3 install -U pip
+     </pre>
 
-`sudo apt-get update && sudo apt-get upgrade -y`
+  4. Installing Node:
+     <pre>
+     curl -fssL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get install nodejs -y && npm i -g npm
+     </pre>
 
-2. Installing Required Packages:
+  5. Clone the Repository:
+     <pre>
+     git clone your_repo_link && cd repo_name
+     </pre>
 
-`sudo apt-get install python3-pip ffmpeg -y`
+  6. Install Requirements:
+     <pre>
+     pip3 install -U -r requirements.txt
+     </pre>
 
-3. Setting up PIP:
+  7. Create .env with sample.env:
+     <pre>
+     cp sample.env .env
+     </pre>
 
-`sudo pip3 install -U pip`
+  8. Editing Vars:
+     <pre>
+     vi .env
+     </pre>
+     Press `I` to start editing. Edit .env with your values. Press `Esc`, then type `:wq` to save and exit.
 
-4. Installing Node:
+  9. Finally, Run Your Music Bot:
+     <pre>
+     sudo apt install tmux && tmux
+     bash start
+     </pre>
+</details>
 
-`curl -fssL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get install nodejs -y && npm i -g npm`
-
-5. Clone the Repository:
-
-`git clone your repo link && cd repo name`
-
-6. Install Requirements:
-
-`pip3 install -U -r requirements.txt`
-
-7. Create .env  with sample.env:
-
-`cp sample.env .env`
-
-Edit .env with your vars
-
-8. Editing Vars:
-
-`vi .env`
-
-Press I button on keyboard to start editing.
-
-Edit .env with your values
-
-
-Press Ctrl + C  once you are done with editing vars and type :wq to save .env or :qa to exit editing.
-
-After Saving Vars type
-
-`sudo apt install tmux && tmux`
-
-9. Finally Run Your Music Bot:
-
-`bash start`
 
 
 ## Deploy On Heroku
@@ -74,17 +74,16 @@ After Saving Vars type
 </p> 
 
 
-# 🏷 Support
+## 🏷 Support
 
-- Contact options listed on [this GitHub profile](https://github.com/ArchBots)
-- [Our Channel](https://t.me/ArchBots)
-- [Support Group](https://t.me/ARCH_SUPPORTS)
+For any questions or assistance, feel free to reach out:
 
-Made by [SAKIL](https://t.me/YO_UR_OFFICIAL_CRUSH)
+- Contact options listed on [this GitHub profile](https://github.com/ArchBots).
+- **Telegram Channel:** [ArchBots](https://t.me/ArchBots)
+- **Telegram Support Group:** [ARCH_SUPPORTS](https://t.me/ARCH_SUPPORTS)
 
-DEVOLOPER [**zoney**](https://t.me/itszoney)
+Made with ❤️ by [SAKIL](https://t.me/YO_UR_OFFICIAL_CRUSH)
 
-DEVOLOPER[Rudra](https://t.me/Unknown_hu_m)
-
-
-
+Developed by:
+- [zoney](https://t.me/itszoney)
+- [Rudra](https://t.me/Unknown_hu_m)
