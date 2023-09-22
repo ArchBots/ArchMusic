@@ -42,17 +42,17 @@ SONG_DOWNLOAD_DURATION = int(
 
 # You'll need a Private Group ID for this.
 
-LOG_GROUP_ID = int(getenv("LOG_GROUP_ID", "-1001923845903"))
+LOG_GROUP_ID = int(getenv("LOG_GROUP_ID", ""))
 
 # A name for your Music bot.
 
-MUSIC_BOT_NAME = getenv("MUSIC_BOT_NAME","ArchMusic")
+MUSIC_BOT_NAME = getenv("MUSIC_BOT_NAME","")
 
 # Your User ID.
 
 OWNER_ID = list(
 
-    map(int, getenv("OWNER_ID", "5218610039").split())
+    map(int, getenv("OWNER_ID", "").split())
 
 )  # Input type must be interger
 
@@ -224,7 +224,7 @@ PING_IMG_URL = getenv(
 
     "PING_IMG_URL",
 
-    "https://telegra.ph//file/23c7e4437488952508e31.jpg",
+    "assets/Ping.jpeg",
 
 )
 
@@ -240,7 +240,7 @@ GLOBAL_IMG_URL = getenv(
 
     "GLOBAL_IMG_URL",
 
-    "https://telegra.ph//file/37932ab524ebe06bd9009.jpg",
+    "assets/Global.jpeg",
 
 )
 
@@ -248,7 +248,7 @@ STATS_IMG_URL = getenv(
 
     "STATS_IMG_URL",
 
-    "https://telegra.ph//file/23c7e4437488952508e31.jpg",
+    "assets/Stats.jpeg",
 
 )
 
