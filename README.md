@@ -78,8 +78,9 @@ For any questions or assistance, feel free to reach out:
 - **Telegram Channel:** [ArchBots](https://t.me/ArchBots)
 - **Telegram Support Group:** [ARCH_SUPPORTS](https://t.me/ARCH_SUPPORTS)
 
-Made with ❤️ by [SAKIL](https://t.me/YO_UR_OFFICIAL_CRUSH)
+Made with ❤️ by [**SAKIL**](https://t.me/YO_UR_OFFICIAL_CRUSH)
 
 Developed by:
-- [zoney](https://t.me/itszoney)
-- [Rudra](https://t.me/Unknown_hu_m)
+**credit**
+- [**YUKKIMUSIC**](https://t.me/YukkiSupport)
+- [**Rudra**](https://t.me/Unknown_hu_m)
