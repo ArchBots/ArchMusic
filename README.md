@@ -1,6 +1,6 @@
 
 
-# Arch Music Bot <img src="https://img.shields.io/github/v/release/sakil000/ArohiMusicBot?color=green&logo=github&logoColor=red&style=social" alt="RELEASE">
+# Arch Music Bot <img src="https://img.shields.io/github/v/release/ArchBots/ArchMusic?color=green&logo=github&logoColor=red&style=social" alt="RELEASE">
 
 <img src="https://telegra.ph/file/3e72df6ef787df25f008e.jpg" align="middle" width="200" height="200"/>
 
@@ -67,11 +67,7 @@
 
 ## Deploy On Heroku
 
-<p align="center"><a href="https://heroku.com/deploy?template=https://github.com/ArchBots/ArchMusic"> <img src="https://img.shields.io/badge/Deploy%20To%20Heroku-purple?style=for-the-badge&logo=heroku" width="250" height="43"/></a></p>
-
-<p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?color=F555247&width=890&lines=𝗕𝗢𝗧+𝗜𝗦+𝗖𝗥𝗘𝗔𝗧𝗘𝗗+𝗙𝗢𝗥+𝗙𝗥𝗜𝗘𝗡𝗗+𝗪𝗜𝗧𝗛+𝗟𝗢𝗩𝗘+𝗔𝗡𝗗+𝗛𝗔𝗥𝗗𝗪𝗢𝗥𝗞+𝗕𝗬+𝗔𝗥𝗖𝗛𝗕𝗢𝗧𝗦%E2%9C%8C">
-</p> 
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Koch-Dev/Dooker)
 
 
 ## 🏷 Support
