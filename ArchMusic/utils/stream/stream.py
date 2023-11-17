@@ -16,7 +16,7 @@ from pyrogram.types import InlineKeyboardMarkup
 
 import config
 from ArchMusic import Carbon, YouTube, app
-from ArchMusic.core.call import ArchMusic
+from ArchMusic.core.call import Arch
 from ArchMusic.misc import db
 from ArchMusic.utils.database import (add_active_chat,
                                        add_active_video_chat,
