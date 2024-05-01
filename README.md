@@ -1,7 +1,7 @@
 # 𝘼𝙧𝙘𝙝 ✘ 𝙈𝙪𝙨𝙞𝙘 <img src="https://img.shields.io/github/v/release/ArchBots/ArchMusic?color=green&logo=github&logoColor=red&style=social" alt="RELEASE">
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
 
-<img src="https://telegra.ph/file/67a7078573dbf895ce7aa.jpg" align="middle" width="500" height="200"/>
+<img src="https://telegra.ph/file/67a7078573dbf895ce7aa.jpg" align="middle" width="500" height="250"/>
 
 <!-- 𝙋𝙍𝙊𝙅𝙀𝘾𝙏 𝙊𝙒𝙉𝙀𝙍𝙎𝙃𝙄𝙋 𝙏𝙍𝘼𝙉𝙎𝙁𝙀𝙍 -->
 <details>
