@@ -1,25 +1,17 @@
-#
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
-#
-# This file is part of < https://github.com/ArchBots/ArchMusic > project,
-# and is released under the "GNU v3.0 License Agreement".
-# Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
-#
-# All rights reserved.
-#
-
 import os
 import sys
+import subprocess
 from os import listdir, mkdir
 
 from ..logging import LOGGER
 
 
 def dirr():
+    subprocess.run(["rm", "-rf", "*.session"])
+    subprocess.run(["rm", "-rf", "*.session-journal"])
+
     if "assets" not in listdir():
-        LOGGER(__name__).warning(
-            f"Assets Folder not Found. Please clone repository again."
-        )
+        LOGGER(__name__).warning("Assets Folder not Found. Please clone repository again.")
         sys.exit()
     for file in os.listdir():
         if file.endswith(".jpg"):
