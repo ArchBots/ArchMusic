@@ -8,6 +8,7 @@ hachoir
 heroku3
 lyricsgenius
 motor
+numpy
 pillow
 psutil
 pykeyboard
