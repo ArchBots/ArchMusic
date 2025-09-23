@@ -56,6 +56,8 @@ async def check_playlist(client, message: Message, _):
         msg += f"\n\n{count}- {title[:70]}\n"
         msg += _["playlist_5"].format(duration)
     link = await ArchMusicbin(msg)
+    if not link:
+        link = "Pastebin service unavailable"
     lines = msg.count("\n")
     if lines >= 17:
         car = os.linesep.join(msg.split(os.linesep)[:17])

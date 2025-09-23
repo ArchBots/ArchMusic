@@ -220,6 +220,12 @@ async def queued_tracks(client, CallbackQuery: CallbackQuery, _):
         if "🏷" in msg:
             msg = msg.replace("🏷", "")
         link = await ArchMusicbin(msg)
+        if not link:
+            # If pastebin fails, send as regular text
+            await asyncio.sleep(1)
+            return await CallbackQuery.edit_message_text(
+                msg[:4000] + "..." if len(msg) > 4000 else msg, reply_markup=buttons
+            )
         med = InputMediaPhoto(
             media=link, caption=_["queue_3"].format(link)
         )

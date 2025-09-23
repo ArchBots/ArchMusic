@@ -58,7 +58,10 @@ async def log_(client, message, _):
                 return await message.reply_text(_["heroku_1"])
             data = HAPP.get_log()
             link = await ArchMusicbin(data)
-            return await message.reply_text(link)
+            if link:
+                return await message.reply_text(link)
+            else:
+                return await message.reply_text("Failed to upload logs to pastebin service. Please try again later or check logs locally.")
         else:
             if os.path.exists(config.LOG_FILE_NAME):
                 log = open(config.LOG_FILE_NAME)
@@ -71,7 +74,12 @@ async def log_(client, message, _):
                 for x in lines[-NUMB:]:
                     data += x
                 link = await ArchMusicbin(data)
-                return await message.reply_text(link)
+                if link:
+                    return await message.reply_text(link)
+                else:
+                    # If pastebin fails, send truncated log directly
+                    truncated_data = data[:3000] + "\n\n... (Log truncated due to pastebin service unavailability)"
+                    return await message.reply_text(f"```\n{truncated_data}\n```")
             else:
                 return await message.reply_text(_["heroku_2"])
     except Exception as e:
@@ -267,9 +275,17 @@ async def update_(client, message, _):
     _final_updates_ = _update_response_ + updates
     if len(_final_updates_) > 4096:
         url = await ArchMusicbin(updates)
-        nrs = await response.edit(
-            f"<b>A new update is available for the Bot!</b>\n\n➣ Pushing Updates Now</code>\n\n**<u>Updates:</u>**\n\n[Click Here to checkout Updates]({url})"
-        )
+        if url:
+            nrs = await response.edit(
+                f"<b>A new update is available for the Bot!</b>\n\n➣ Pushing Updates Now</code>\n\n**<u>Updates:</u>**\n\n[Click Here to checkout Updates]({url})"
+            )
+        else:
+            # If pastebin fails, truncate the message
+            truncated_updates = updates[:3000] + "\n\n<b>... (Update log truncated due to length. Pastebin service unavailable)</b>"
+            _truncated_final_ = _update_response_ + truncated_updates
+            nrs = await response.edit(
+                _truncated_final_, disable_web_page_preview=True
+            )
     else:
         nrs = await response.edit(
             _final_updates_, disable_web_page_preview=True

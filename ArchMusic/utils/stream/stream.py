@@ -131,6 +131,8 @@ async def stream(
             return
         else:
             link = await ArchMusicbin(msg)
+            if not link:
+                link = "Pastebin service unavailable"
             lines = msg.count("\n")
             if lines >= 17:
                 car = os.linesep.join(msg.split(os.linesep)[:17])
