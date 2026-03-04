@@ -12,8 +12,8 @@ motor
 pillow
 psutil
 pykeyboard
-py-tgcalls==0.9.7
-git+https://github.com/KurimuzonAkuma/pyrogram@dev
+py-tgcalls==2.2.11
+kurigram
 python-dotenv
 pyyaml
 requests
