@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -18,8 +18,7 @@ from io import StringIO
 from time import time
 
 from pyrogram import filters
-from pyrogram.types import (InlineKeyboardButton,
-                            InlineKeyboardMarkup, Message)
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from ArchMusic import app
 from ArchMusic.misc import SUDOERS
@@ -39,184 +38,141 @@ async def edit_or_reply(msg: Message, **kwargs):
     await func(**{k: v for k, v in kwargs.items() if k in spec})
 
 
-@app.on_message(
-    filters.command("eval")
-    & SUDOERS
-    & ~filters.forwarded
-    & ~filters.via_bot
-)
-async def executor(client, message):
-    if len(message.command) < 2:
-        return await edit_or_reply(
-            message, text="__Nigga Give me some command to execute.__"
+def _runtime_keyboard(elapsed: float, user_id: int = None) -> InlineKeyboardMarkup:
+    row = [
+        InlineKeyboardButton(
+            text="⏳",
+            callback_data=f"runtime {round(elapsed, 3)} Seconds",
         )
+    ]
+    if user_id is not None:
+        row.append(
+            InlineKeyboardButton(
+                text="🗑",
+                callback_data=f"forceclose abc|{user_id}",
+            )
+        )
+    return InlineKeyboardMarkup([row])
+
+
+@app.on_message(
+    filters.command("eval") & SUDOERS & ~filters.forwarded & ~filters.via_bot
+)
+async def executor(client, message: Message):
+    if len(message.command) < 2:
+        return await edit_or_reply(message, text="__Give me a command to execute.__")
+
     try:
         cmd = message.text.split(" ", maxsplit=1)[1]
     except IndexError:
         return await message.delete()
+
     t1 = time()
-    old_stderr = sys.stderr
-    old_stdout = sys.stdout
-    redirected_output = sys.stdout = StringIO()
-    redirected_error = sys.stderr = StringIO()
-    stdout, stderr, exc = None, None, None
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout = redirected_output = StringIO()
+    sys.stderr = redirected_error  = StringIO()
+    exc = None
     try:
         await aexec(cmd, client, message)
     except Exception:
         exc = traceback.format_exc()
-    stdout = redirected_output.getvalue()
-    stderr = redirected_error.getvalue()
-    sys.stdout = old_stdout
-    sys.stderr = old_stderr
-    evaluation = ""
-    if exc:
-        evaluation = exc
-    elif stderr:
-        evaluation = stderr
-    elif stdout:
-        evaluation = stdout
-    else:
-        evaluation = "Success"
+    finally:
+        stdout = redirected_output.getvalue()
+        stderr = redirected_error.getvalue()
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+
+    evaluation = exc or stderr or stdout or "Success"
+    elapsed    = time() - t1
     final_output = f"**OUTPUT**:\n```{evaluation.strip()}```"
+
     if len(final_output) > 4096:
         filename = "output.txt"
         with open(filename, "w+", encoding="utf8") as out_file:
-            out_file.write(str(evaluation.strip()))
-        t2 = time()
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        text="⏳",
-                        callback_data=f"runtime {t2-t1} Seconds",
-                    )
-                ]
-            ]
-        )
+            out_file.write(evaluation.strip())
         await message.reply_document(
             document=filename,
-            caption=f"**INPUT:**\n`{cmd[0:980]}`\n\n**OUTPUT:**\n`Attached Document`",
+            caption=f"**INPUT:**\n`{cmd[:980]}`\n\n**OUTPUT:**\n`Attached Document`",
             quote=False,
-            reply_markup=keyboard,
+            reply_markup=_runtime_keyboard(elapsed),
         )
         await message.delete()
         os.remove(filename)
     else:
-        t2 = time()
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        text="⏳",
-                        callback_data=f"runtime {round(t2-t1, 3)} Seconds",
-                    ),
-                    InlineKeyboardButton(
-                        text="🗑",
-                        callback_data=f"forceclose abc|{message.from_user.id}",
-                    ),
-                ]
-            ]
-        )
         await edit_or_reply(
-            message, text=final_output, reply_markup=keyboard
+            message,
+            text=final_output,
+            reply_markup=_runtime_keyboard(elapsed, message.from_user.id),
         )
 
 
-@app.on_callback_query(filters.regex(r"runtime"))
+@app.on_callback_query(filters.regex(r"^runtime "))
 async def runtime_func_cq(_, cq):
-    runtime = cq.data.split(None, 1)[1]
-    await cq.answer(runtime, show_alert=True)
+    await cq.answer(cq.data.split(None, 1)[1], show_alert=True)
 
 
-@app.on_callback_query(filters.regex("forceclose"))
-async def forceclose_command(_, CallbackQuery):
-    callback_data = CallbackQuery.data.strip()
-    callback_request = callback_data.split(None, 1)[1]
-    query, user_id = callback_request.split("|")
-    if CallbackQuery.from_user.id != int(user_id):
+@app.on_callback_query(filters.regex(r"^forceclose "))
+async def forceclose_command(_, cq):
+    _, user_id = cq.data.split(None, 1)[1].split("|")
+    if cq.from_user.id != int(user_id):
         try:
-            return await CallbackQuery.answer(
-                "You're not allowed to close this.", show_alert=True
-            )
-        except:
+            return await cq.answer("You're not allowed to close this.", show_alert=True)
+        except Exception:
             return
-    await CallbackQuery.message.delete()
+    await cq.message.delete()
     try:
-        await CallbackQuery.answer()
-    except:
+        await cq.answer()
+    except Exception:
         return
 
 
 @app.on_message(
-    filters.command("sh")
-    & SUDOERS
-    & ~filters.forwarded
-    & ~filters.via_bot
+    filters.command("sh") & SUDOERS & ~filters.forwarded & ~filters.via_bot
 )
-async def shellrunner(client, message):
+async def shellrunner(client, message: Message):
     if len(message.command) < 2:
-        return await edit_or_reply(
-            message, text="**Usage:**\n/sh git pull"
-        )
+        return await edit_or_reply(message, text="**Usage:**\n`/sh git pull`")
+
     text = message.text.split(None, 1)[1]
+    _splitter = r""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)"""
+
     if "\n" in text:
-        code = text.split("\n")
-        output = ""
-        for x in code:
-            shell = re.split(
-                """ (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", x
-            )
+        output_parts = []
+        for line in text.split("\n"):
+            shell = re.split(_splitter, line)
             try:
                 process = subprocess.Popen(
-                    shell,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                 )
+                out = process.stdout.read()[:-1].decode("utf-8")
+                output_parts.append(f"**{line}**\n{out}")
             except Exception as err:
-                print(err)
-                await edit_or_reply(
-                    message, text=f"**ERROR:**\n```{err}```"
-                )
-            output += f"**{code}**\n"
-            output += process.stdout.read()[:-1].decode("utf-8")
-            output += "\n"
+                await edit_or_reply(message, text=f"**ERROR:**\n```{err}```")
+                return
+        output = "\n".join(output_parts)
     else:
-        shell = re.split(""" (?=(?:[^'"]|'[^']*'|"[^"]*")*$)""", text)
-        for a in range(len(shell)):
-            shell[a] = shell[a].replace('"', "")
+        shell = [s.replace('"', "") for s in re.split(_splitter, text)]
         try:
             process = subprocess.Popen(
-                shell,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
         except Exception as err:
-            print(err)
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            errors = traceback.format_exception(
-                etype=exc_type,
-                value=exc_obj,
-                tb=exc_tb,
-            )
-            return await edit_or_reply(
-                message, text=f"**ERROR:**\n```{''.join(errors)}```"
-            )
+            errors = traceback.format_exc()
+            return await edit_or_reply(message, text=f"**ERROR:**\n```{errors}```")
         output = process.stdout.read()[:-1].decode("utf-8")
-    if str(output) == "\n":
-        output = None
-    if output:
-        if len(output) > 4096:
-            with open("output.txt", "w+") as file:
-                file.write(output)
-            await client.send_document(
-                message.chat.id,
-                "output.txt",
-                reply_to_message_id=message.message_id,
-                caption="`Output`",
-            )
-            return os.remove("output.txt")
-        await edit_or_reply(
-            message, text=f"**OUTPUT:**\n```{output}```"
+
+    if not output or output == "\n":
+        return await edit_or_reply(message, text="**OUTPUT:**\n`No output`")
+
+    if len(output) > 4096:
+        with open("output.txt", "w+") as f:
+            f.write(output)
+        await client.send_document(
+            message.chat.id,
+            "output.txt",
+            reply_to_message_id=message.id,
+            caption="`Output`",
         )
+        os.remove("output.txt")
     else:
-        await edit_or_reply(message, text="**OUTPUT: **\n`No output`")
+        await edit_or_reply(message, text=f"**OUTPUT:**\n```{output}```")

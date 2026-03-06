@@ -1,12 +1,11 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
 # Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
 #
 # All rights reserved.
-#
 
 from pyrogram import filters
 
@@ -17,7 +16,6 @@ from ArchMusic.misc import SUDOERS
 from ArchMusic.utils.database import add_off, add_on
 from ArchMusic.utils.decorators.language import language
 
-# Commands
 LOGGER_COMMAND = get_command("LOGGER_COMMAND")
 
 
@@ -27,8 +25,7 @@ async def logger(client, message, _):
     usage = _["log_1"]
     if len(message.command) != 2:
         return await message.reply_text(usage)
-    state = message.text.split(None, 1)[1].strip()
-    state = state.lower()
+    state = message.text.split(None, 1)[1].strip().lower()
     if state == "enable":
         await add_on(config.LOG)
         await message.reply_text(_["log_2"])

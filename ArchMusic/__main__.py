@@ -21,8 +21,6 @@ from ArchMusic.core.call import ArchMusic
 from ArchMusic.plugins import ALL_MODULES
 from ArchMusic.utils.database import get_banned_users, get_gbanned
 
-loop = asyncio.get_event_loop_policy().get_event_loop()
-
 
 async def init():
     if not any(
@@ -77,5 +75,8 @@ async def init():
 
 
 if __name__ == "__main__":
-    loop.run_until_complete(init())
+    try:
+        asyncio.run(init())
+    except KeyboardInterrupt:
+        pass
     LOGGER("ArchMusic").info("Stopping Arch Music Bot! GoodBye")

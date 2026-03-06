@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -34,8 +34,6 @@ from ArchMusic.utils.decorators.language import LanguageStart
 from ArchMusic.utils.inline import (help_pannel, private_panel,
                                      start_pannel)
 
-loop = asyncio.get_running_loop()
-
 
 @app.on_message(
     filters.command(get_command("START_COMMAND"))
@@ -55,9 +53,7 @@ async def start_comm(client, message: Message, _):
         if name[0:4] == "song":
             return await message.reply_text(_["song_2"])
         if name[0:3] == "sta":
-            m = await message.reply_text(
-                "🔎 Fetching your personal stats.!"
-            )
+            m = await message.reply_text("🔎 Fetching your personal stats.!")
             stats = await get_userss(message.from_user.id)
             tot = len(stats)
             if not stats:
@@ -71,15 +67,15 @@ async def start_comm(client, message: Message, _):
                 for i in stats:
                     top_list = stats[i]["spot"]
                     results[str(i)] = top_list
-                    list_arranged = dict(
-                        sorted(
-                            results.items(),
-                            key=lambda item: item[1],
-                            reverse=True,
-                        )
+                list_arranged = dict(
+                    sorted(
+                        results.items(),
+                        key=lambda item: item[1],
+                        reverse=True,
                     )
+                )
                 if not results:
-                    return m.edit(_["ustats_1"])
+                    return None, None
                 tota = 0
                 videoid = None
                 for vidid, count in list_arranged.items():
@@ -98,13 +94,14 @@ async def start_comm(client, message: Message, _):
                 msg = _["ustats_2"].format(tot, tota, limit) + msg
                 return videoid, msg
 
+            loop = asyncio.get_running_loop()
             try:
-                videoid, msg = await loop.run_in_executor(
-                    None, get_stats
-                )
+                videoid, msg = await loop.run_in_executor(None, get_stats)
             except Exception as e:
                 print(e)
                 return
+            if not videoid:
+                return await m.edit(_["ustats_1"])
             thumbnail = await YouTube.thumbnail(videoid, True)
             await m.delete()
             await message.reply_photo(photo=thumbnail, caption=msg)
@@ -126,9 +123,7 @@ async def start_comm(client, message: Message, _):
             if lyrics:
                 return await Telegram.send_split_text(message, lyrics)
             else:
-                return await message.reply_text(
-                    "Failed to get lyrics."
-                )
+                return await message.reply_text("Failed to get lyrics.")
         if name[0:3] == "del":
             await del_plist_msg(client=client, message=message, _=_)
         if name[0:3] == "inf":
@@ -140,9 +135,7 @@ async def start_comm(client, message: Message, _):
                 title = result["title"]
                 duration = result["duration"]
                 views = result["viewCount"]["short"]
-                thumbnail = result["thumbnails"][0]["url"].split("?")[
-                    0
-                ]
+                thumbnail = result["thumbnails"][0]["url"].split("?")[0]
                 channellink = result["channel"]["link"]
                 channel = result["channel"]["name"]
                 link = result["link"]
@@ -161,16 +154,10 @@ async def start_comm(client, message: Message, _):
 
 ⚡️ __Searched Powered By {config.MUSIC_BOT_NAME}__"""
             key = InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton(
-                            text="🎥 Watch ", url=f"{link}"
-                        ),
-                        InlineKeyboardButton(
-                            text="🔄 Close", callback_data="close"
-                        ),
-                    ],
-                ]
+                [[
+                    InlineKeyboardButton(text="🎥 Watch ", url=f"{link}"),
+                    InlineKeyboardButton(text="🔄 Close", callback_data="close"),
+                ]]
             )
             await m.delete()
             await app.send_photo(
@@ -198,9 +185,7 @@ async def start_comm(client, message: Message, _):
             try:
                 await message.reply_photo(
                     photo=config.START_IMG_URL,
-                    caption=_["start_2"].format(
-                        config.MUSIC_BOT_NAME
-                    ),
+                    caption=_["start_2"].format(config.MUSIC_BOT_NAME),
                     reply_markup=InlineKeyboardMarkup(out),
                 )
             except:
@@ -224,9 +209,8 @@ async def start_comm(client, message: Message, _):
 
 welcome_group = 2
 
-@app.on_message(
-    filters.new_chat_members, group=welcome_group
-)
+
+@app.on_message(filters.new_chat_members, group=welcome_group)
 async def welcome(client, message: Message):
     chat_id = message.chat.id
     if config.PRIVATE_BOT_MODE == str(True):
@@ -255,27 +239,23 @@ async def welcome(client, message: Message):
                     return await app.leave_chat(chat_id)
                 userbot = await get_assistant(message.chat.id)
                 out = start_pannel(_)
-
-                video_url = "https://telegra.ph/file/acfb445238b05315f0013.mp4"  # Replace with the actual URL of the video
-                video_caption = _["start_3"].format(config.MUSIC_BOT_NAME, userbot.username, userbot.id)
-
+                video_url = "https://telegra.ph/file/acfb445238b05315f0013.mp4"
+                video_caption = _["start_3"].format(
+                    config.MUSIC_BOT_NAME, userbot.username, userbot.id
+                )
                 await app.send_video(
                     message.chat.id,
                     video_url,
                     caption=video_caption,
-                    reply_markup=InlineKeyboardMarkup(out)
+                    reply_markup=InlineKeyboardMarkup(out),
                 )
             if member.id in config.OWNER_ID:
                 return await message.reply_text(
-                    _["start_4"].format(
-                        config.MUSIC_BOT_NAME, member.mention
-                    )
+                    _["start_4"].format(config.MUSIC_BOT_NAME, member.mention)
                 )
             if member.id in SUDOERS:
                 return await message.reply_text(
-                    _["start_5"].format(
-                        config.MUSIC_BOT_NAME, member.mention
-                    )
+                    _["start_5"].format(config.MUSIC_BOT_NAME, member.mention)
                 )
             return
         except:

@@ -1,12 +1,11 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
 # Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
 #
 # All rights reserved.
-#
 
 from pyrogram import filters
 from pyrogram.types import Message
@@ -18,18 +17,16 @@ from ArchMusic.misc import SUDOERS
 from ArchMusic.utils.database import add_off, add_on
 from ArchMusic.utils.decorators.language import language
 
-# Commands
 VIDEOMODE_COMMAND = get_command("VIDEOMODE_COMMAND")
 
 
 @app.on_message(filters.command(VIDEOMODE_COMMAND) & SUDOERS)
 @language
-async def videoloaymode(client, message: Message, _):
+async def video_load_mode(client, message: Message, _):
     usage = _["vidmode_1"]
     if len(message.command) != 2:
         return await message.reply_text(usage)
-    state = message.text.split(None, 1)[1].strip()
-    state = state.lower()
+    state = message.text.split(None, 1)[1].strip().lower()
     if state == "download":
         await add_on(config.YTDOWNLOADER)
         await message.reply_text(_["vidmode_2"])

@@ -1,25 +1,36 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
 # Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
 #
 # All rights reserved.
-#
 
 import asyncio
+import os
 import shlex
+import shutil
+import socket
 from typing import Tuple
+
+os.environ.setdefault("GIT_PYTHON_REFRESH", "quiet")
+
+_git_bin = shutil.which("git")
+if _git_bin:
+    os.environ.setdefault("GIT_PYTHON_GIT_EXECUTABLE", _git_bin)
 
 from git import Repo
 from git.exc import GitCommandError, InvalidGitRepositoryError
 
 import config
-
 from ..logging import LOGGER
 
 loop = asyncio.get_event_loop_policy().get_event_loop()
+
+
+def _is_heroku() -> bool:
+    return "heroku" in socket.getfqdn()
 
 
 def install_req(cmd: str) -> Tuple[str, str, int, int]:
@@ -38,26 +49,27 @@ def install_req(cmd: str) -> Tuple[str, str, int, int]:
             process.pid,
         )
 
-    return loop.run_until_complete(
-        install_requirements()
-    )
+    return loop.run_until_complete(install_requirements())
 
 
 def git():
+    if _is_heroku():
+        LOGGER(__name__).info("Heroku deployment detected — skipping git init.")
+        return
+
     REPO_LINK = config.UPSTREAM_REPO
     if config.GIT_TOKEN:
         GIT_USERNAME = REPO_LINK.split("com/")[1].split("/")[0]
         TEMP_REPO = REPO_LINK.split("https://")[1]
-        UPSTREAM_REPO = (
-            f"https://{GIT_USERNAME}:{config.GIT_TOKEN}@{TEMP_REPO}"
-        )
+        UPSTREAM_REPO = f"https://{GIT_USERNAME}:{config.GIT_TOKEN}@{TEMP_REPO}"
     else:
         UPSTREAM_REPO = config.UPSTREAM_REPO
+
     try:
         repo = Repo()
-        LOGGER(__name__).info(f"Git Client Found [VPS DEPLOYER]")
+        LOGGER(__name__).info("Git Client Found [VPS DEPLOYER]")
     except GitCommandError:
-        LOGGER(__name__).info(f"Invalid Git Command")
+        LOGGER(__name__).info("Invalid Git Command")
     except InvalidGitRepositoryError:
         repo = Repo.init()
         if "origin" in repo.remotes:

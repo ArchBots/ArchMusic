@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -39,9 +39,8 @@ from ArchMusic.utils.inline.stats import (back_stats_buttons,
                                            stats_buttons,
                                            top_ten_stats_markup)
 
-loop = asyncio.get_running_loop()
 
-# Commands
+
 GSTATS_COMMAND = get_command("GSTATS_COMMAND")
 STATS_COMMAND = get_command("STATS_COMMAND")
 
@@ -81,48 +80,37 @@ async def gstats_global(client, message: Message, _):
         for i in stats:
             top_list = stats[i]["spot"]
             results[str(i)] = top_list
-            list_arranged = dict(
-                sorted(
-                    results.items(),
-                    key=lambda item: item[1],
-                    reverse=True,
-                )
-            )
+        list_arranged = dict(
+            sorted(results.items(), key=lambda item: item[1], reverse=True)
+        )
         if not results:
-            return mystic.edit(_["gstats_2"])
+            return None, None
         videoid = None
         co = None
         for vidid, count in list_arranged.items():
             if vidid == "telegram":
                 continue
-            else:
-                videoid = vidid
-                co = count
+            videoid = vidid
+            co = count
             break
         return videoid, co
 
+    loop = asyncio.get_running_loop()
     try:
         videoid, co = await loop.run_in_executor(None, get_stats)
     except Exception as e:
         print(e)
         return
-    (
-        title,
-        duration_min,
-        duration_sec,
-        thumbnail,
-        vidid,
-    ) = await YouTube.details(videoid, True)
+    if not videoid:
+        return await mystic.edit(_["gstats_2"])
+    (title, duration_min, duration_sec, thumbnail, vidid) = await YouTube.details(videoid, True)
     title = title.title()
     final = f"Top Most Played Track on {MUSIC_BOT_NAME}\n\n**Title:** {title}\n\nPlayed** {co} **times"
     upl = get_stats_markup(
         _, True if message.from_user.id in SUDOERS else False
     )
     await app.send_photo(
-        message.chat.id,
-        photo=thumbnail,
-        caption=final,
-        reply_markup=upl,
+        message.chat.id, photo=thumbnail, caption=final, reply_markup=upl
     )
     await mystic.delete()
 
@@ -140,9 +128,7 @@ async def top_users_ten(client, CallbackQuery: CallbackQuery, _):
         pass
     mystic = await CallbackQuery.edit_message_text(
         _["gstats_3"].format(
-            f"of {CallbackQuery.message.chat.title}"
-            if what == "Here"
-            else what
+            f"of {CallbackQuery.message.chat.title}" if what == "Here" else what
         )
     )
     if what == "Tracks":
@@ -162,20 +148,14 @@ async def top_users_ten(client, CallbackQuery: CallbackQuery, _):
         results = {}
         for i in stats:
             top_list = (
-                stats[i]
-                if what in ["Chats", "Users"]
-                else stats[i]["spot"]
+                stats[i] if what in ["Chats", "Users"] else stats[i]["spot"]
             )
             results[str(i)] = top_list
-            list_arranged = dict(
-                sorted(
-                    results.items(),
-                    key=lambda item: item[1],
-                    reverse=True,
-                )
-            )
+        list_arranged = dict(
+            sorted(results.items(), key=lambda item: item[1], reverse=True)
+        )
         if not results:
-            return mystic.edit(_["gstats_2"], reply_markup=upl)
+            return None, None
         msg = ""
         limit = 0
         total_count = 0
@@ -191,30 +171,22 @@ async def top_users_ten(client, CallbackQuery: CallbackQuery, _):
                     msg += f"🔗[Telegram Files and Audios](https://t.me/telegram) ** played {count} times**\n\n"
                 else:
                     msg += f"🔗 [{title}](https://www.youtube.com/watch?v={items}) ** played {count} times**\n\n"
-
             temp = (
-                _["gstats_4"].format(
-                    queries,
-                    config.MUSIC_BOT_NAME,
-                    len(stats),
-                    total_count,
-                    limit,
-                )
+                _["gstats_4"].format(queries, config.MUSIC_BOT_NAME, len(stats), total_count, limit)
                 if what == "Tracks"
-                else _["gstats_7"].format(
-                    len(stats), total_count, limit
-                )
+                else _["gstats_7"].format(len(stats), total_count, limit)
             )
             msg = temp + msg
         return msg, list_arranged
 
+    loop = asyncio.get_running_loop()
     try:
-        msg, list_arranged = await loop.run_in_executor(
-            None, get_stats
-        )
+        msg, list_arranged = await loop.run_in_executor(None, get_stats)
     except Exception as e:
         print(e)
         return
+    if not msg:
+        return await mystic.edit(_["gstats_2"], reply_markup=upl)
     limit = 0
     if what in ["Users", "Chats"]:
         for items, count in list_arranged.items():
@@ -241,9 +213,7 @@ async def top_users_ten(client, CallbackQuery: CallbackQuery, _):
         msg = temp + msg
     med = InputMediaPhoto(media=config.GLOBAL_IMG_URL, caption=msg)
     try:
-        await CallbackQuery.edit_message_media(
-            media=med, reply_markup=upl
-        )
+        await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
     except MessageIdInvalid:
         await CallbackQuery.message.reply_photo(
             photo=config.GLOBAL_IMG_URL, caption=msg, reply_markup=upl
@@ -255,10 +225,7 @@ async def top_users_ten(client, CallbackQuery: CallbackQuery, _):
 async def overall_stats(client, CallbackQuery, _):
     callback_data = CallbackQuery.data.strip()
     what = callback_data.split(None, 1)[1]
-    if what != "s":
-        upl = overallback_stats_markup(_)
-    else:
-        upl = back_stats_buttons(_)
+    upl = overallback_stats_markup(_) if what != "s" else back_stats_buttons(_)
     try:
         await CallbackQuery.answer()
     except:
@@ -275,20 +242,17 @@ async def overall_stats(client, CallbackQuery, _):
     fetch_playlist = config.PLAYLIST_FETCH_LIMIT
     song = config.SONG_DOWNLOAD_DURATION
     play_duration = config.DURATION_LIMIT_MIN
-    if config.AUTO_LEAVING_ASSISTANT == str(True):
-        ass = "Yes"
-    else:
-        ass = "No"
+    ass = "Yes" if config.AUTO_LEAVING_ASSISTANT == str(True) else "No"
     cm = config.CLEANMODE_DELETE_MINS
     text = f"""**Bot's Stats and Information:**
 
 **Imported Modules:** {mod}
-**Served Chats:** {served_chats} 
-**Served Users:** {served_users} 
-**Blocked Users:** {blocked} 
-**Sudo Users:** {sudoers} 
-    
-**Total Queries:** {total_queries} 
+**Served Chats:** {served_chats}
+**Served Users:** {served_users}
+**Blocked Users:** {blocked}
+**Sudo Users:** {sudoers}
+
+**Total Queries:** {total_queries}
 **Total Assistants:** {assistant}
 **Auto Leaving Assistant:** {ass}
 **Cleanmode duration:** {cm} Mins
@@ -299,9 +263,7 @@ async def overall_stats(client, CallbackQuery, _):
 **Playlist Play Limit:** {fetch_playlist}"""
     med = InputMediaPhoto(media=config.STATS_IMG_URL, caption=text)
     try:
-        await CallbackQuery.edit_message_media(
-            media=med, reply_markup=upl
-        )
+        await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
     except MessageIdInvalid:
         await CallbackQuery.message.reply_photo(
             photo=config.STATS_IMG_URL, caption=text, reply_markup=upl
@@ -310,17 +272,12 @@ async def overall_stats(client, CallbackQuery, _):
 
 @app.on_callback_query(filters.regex("bot_stats_sudo"))
 @languageCB
-async def overall_stats(client, CallbackQuery, _):
+async def sudo_stats(client, CallbackQuery, _):
     if CallbackQuery.from_user.id not in SUDOERS:
-        return await CallbackQuery.answer(
-            "Only for Sudo Users", show_alert=True
-        )
+        return await CallbackQuery.answer("Only for Sudo Users", show_alert=True)
     callback_data = CallbackQuery.data.strip()
     what = callback_data.split(None, 1)[1]
-    if what != "s":
-        upl = overallback_stats_markup(_)
-    else:
-        upl = back_stats_buttons(_)
+    upl = overallback_stats_markup(_) if what != "s" else back_stats_buttons(_)
     try:
         await CallbackQuery.answer()
     except:
@@ -329,39 +286,29 @@ async def overall_stats(client, CallbackQuery, _):
     sc = platform.system()
     p_core = psutil.cpu_count(logical=False)
     t_core = psutil.cpu_count(logical=True)
-    ram = (
-        str(round(psutil.virtual_memory().total / (1024.0**3)))
-        + " GB"
-    )
+    ram = str(round(psutil.virtual_memory().total / (1024.0 ** 3))) + " GB"
     try:
         cpu_freq = psutil.cpu_freq().current
-        if cpu_freq >= 1000:
-            cpu_freq = f"{round(cpu_freq / 1000, 2)}GHz"
-        else:
-            cpu_freq = f"{round(cpu_freq, 2)}MHz"
+        cpu_freq = f"{round(cpu_freq / 1000, 2)}GHz" if cpu_freq >= 1000 else f"{round(cpu_freq, 2)}MHz"
     except:
         cpu_freq = "Unable to Fetch"
     hdd = psutil.disk_usage("/")
-    total = hdd.total / (1024.0**3)
-    total = str(total)
-    used = hdd.used / (1024.0**3)
-    used = str(used)
-    free = hdd.free / (1024.0**3)
-    free = str(free)
+    total = str(hdd.total / (1024.0 ** 3))
+    used  = str(hdd.used  / (1024.0 ** 3))
+    free  = str(hdd.free  / (1024.0 ** 3))
     mod = len(ALL_MODULES)
     db = pymongodb
     call = db.command("dbstats")
-    datasize = call["dataSize"] / 1024
-    datasize = str(datasize)
-    storage = call["storageSize"] / 1024
-    objects = call["objects"]
+    datasize   = str(call["dataSize"] / 1024)
+    storage    = call["storageSize"] / 1024
+    objects    = call["objects"]
     collections = call["collections"]
-    served_chats = len(await get_served_chats())
-    served_users = len(await get_served_users())
+    served_chats  = len(await get_served_chats())
+    served_users  = len(await get_served_users())
     total_queries = await get_queries()
-    blocked = len(BANNED_USERS)
-    sudoers = len(await get_sudoers())
-    text = f""" **Bot's Stats and Information:**
+    blocked  = len(BANNED_USERS)
+    sudoers  = len(await get_sudoers())
+    text = f"""**Bot's Stats and Information:**
 
 **Imported Modules:** {mod}
 **Platform:** {sc}
@@ -378,22 +325,19 @@ async def overall_stats(client, CallbackQuery, _):
 **Storage Used:** {used[:4]} GiB
 **Storage Left:** {free[:4]} GiB
 
-**Served Chats:** {served_chats} 
-**Served Users:** {served_users} 
-**Blocked Users:** {blocked} 
-**Sudo Users:** {sudoers} 
+**Served Chats:** {served_chats}
+**Served Users:** {served_users}
+**Blocked Users:** {blocked}
+**Sudo Users:** {sudoers}
 
 **Total DB Size:** {datasize[:6]} Mb
 **Total DB Storage:** {storage} Mb
 **Total DB Collections:** {collections}
 **Total DB Keys:** {objects}
-**Total Bot Queries:** `{total_queries} `
-    """
+**Total Bot Queries:** `{total_queries}`"""
     med = InputMediaPhoto(media=config.STATS_IMG_URL, caption=text)
     try:
-        await CallbackQuery.edit_message_media(
-            media=med, reply_markup=upl
-        )
+        await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
     except MessageIdInvalid:
         await CallbackQuery.message.reply_photo(
             photo=config.STATS_IMG_URL, caption=text, reply_markup=upl
@@ -413,33 +357,23 @@ async def back_buttons(client, CallbackQuery, _):
     command = CallbackQuery.matches[0].group(1)
     if command == "TOPMARKUPGET":
         upl = top_ten_stats_markup(_)
-        med = InputMediaPhoto(
-            media=config.GLOBAL_IMG_URL,
-            caption=_["gstats_9"],
-        )
+        med = InputMediaPhoto(media=config.GLOBAL_IMG_URL, caption=_["gstats_9"])
         try:
-            await CallbackQuery.edit_message_media(
-                media=med, reply_markup=upl
-            )
+            await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
         except MessageIdInvalid:
             await CallbackQuery.message.reply_photo(
-                photo=config.GLOBAL_IMG_URL,
-                caption=_["gstats_9"],
-                reply_markup=upl,
+                photo=config.GLOBAL_IMG_URL, caption=_["gstats_9"], reply_markup=upl
             )
     if command == "GlobalStats":
         upl = get_stats_markup(
-            _,
-            True if CallbackQuery.from_user.id in SUDOERS else False,
+            _, True if CallbackQuery.from_user.id in SUDOERS else False
         )
         med = InputMediaPhoto(
             media=config.GLOBAL_IMG_URL,
             caption=_["gstats_10"].format(config.MUSIC_BOT_NAME),
         )
         try:
-            await CallbackQuery.edit_message_media(
-                media=med, reply_markup=upl
-            )
+            await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
         except MessageIdInvalid:
             await CallbackQuery.message.reply_photo(
                 photo=config.GLOBAL_IMG_URL,
@@ -448,17 +382,14 @@ async def back_buttons(client, CallbackQuery, _):
             )
     if command == "GETSTATS":
         upl = stats_buttons(
-            _,
-            True if CallbackQuery.from_user.id in SUDOERS else False,
+            _, True if CallbackQuery.from_user.id in SUDOERS else False
         )
         med = InputMediaPhoto(
             media=config.STATS_IMG_URL,
             caption=_["gstats_11"].format(config.MUSIC_BOT_NAME),
         )
         try:
-            await CallbackQuery.edit_message_media(
-                media=med, reply_markup=upl
-            )
+            await CallbackQuery.edit_message_media(media=med, reply_markup=upl)
         except MessageIdInvalid:
             await CallbackQuery.message.reply_photo(
                 photo=config.STATS_IMG_URL,

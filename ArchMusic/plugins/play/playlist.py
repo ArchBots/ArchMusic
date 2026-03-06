@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -11,7 +11,6 @@
 import os
 from random import randint
 
-from pykeyboard import InlineKeyboard
 from pyrogram import filters
 from pyrogram.types import (InlineKeyboardButton,
                             InlineKeyboardMarkup, Message)
@@ -29,7 +28,6 @@ from ArchMusic.utils.inline.playlist import (botplaylist_markup,
 from ArchMusic.utils.pastebin import ArchMusicbin
 from ArchMusic.utils.stream.stream import stream
 
-# Command
 PLAYLIST_COMMAND = get_command("PLAYLIST_COMMAND")
 DELETEPLAYLIST_COMMAND = get_command("DELETEPLAYLIST_COMMAND")
 
@@ -89,29 +87,29 @@ async def del_group_message(client, message: Message, _):
 
 
 async def get_keyboard(_, user_id):
-    keyboard = InlineKeyboard(row_width=5)
     _playlist = await get_playlist_names(user_id)
     count = len(_playlist)
+    rows = []
     for x in _playlist:
         _note = await get_playlist(user_id, x)
-        title = _note["title"]
-        title = title.title()
-        keyboard.row(
+        title = _note["title"].title()
+        rows.append([
             InlineKeyboardButton(
                 text=title,
                 callback_data=f"del_playlist {x}",
             )
-        )
-    keyboard.row(
+        ])
+    rows.append([
         InlineKeyboardButton(
             text=_["PL_B_5"],
-            callback_data=f"delete_warning",
+            callback_data="delete_warning",
         ),
         InlineKeyboardButton(
-            text=_["CLOSE_BUTTON"], callback_data=f"close"
+            text=_["CLOSE_BUTTON"],
+            callback_data="close",
         ),
-    )
-    return keyboard, count
+    ])
+    return InlineKeyboardMarkup(rows), count
 
 
 @app.on_message(

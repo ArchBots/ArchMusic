@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -19,25 +19,22 @@ from ArchMusic import app
 from ArchMusic.misc import db
 from ArchMusic.utils.decorators import AdminRightsCheck
 
-# Commands
 SHUFFLE_COMMAND = get_command("SHUFFLE_COMMAND")
 
 
 @app.on_message(
-    filters.command(SHUFFLE_COMMAND)
-    & filters.group
-    & ~BANNED_USERS
+    filters.command(SHUFFLE_COMMAND) & filters.group & ~BANNED_USERS
 )
 @AdminRightsCheck
-async def admins(Client, message: Message, _, chat_id):
-    if not len(message.command) == 1:
+async def shuffle_com(cli, message: Message, _, chat_id):
+    if len(message.command) != 1:
         return await message.reply_text(_["general_2"])
     check = db.get(chat_id)
     if not check:
         return await message.reply_text(_["admin_21"])
     try:
         popped = check.pop(0)
-    except:
+    except Exception:
         return await message.reply_text(_["admin_22"])
     check = db.get(chat_id)
     if not check:
@@ -45,6 +42,4 @@ async def admins(Client, message: Message, _, chat_id):
         return await message.reply_text(_["admin_22"])
     random.shuffle(check)
     check.insert(0, popped)
-    await message.reply_text(
-        _["admin_23"].format(message.from_user.first_name)
-    )
+    await message.reply_text(_["admin_23"].format(message.from_user.first_name))

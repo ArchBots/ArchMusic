@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -16,75 +16,76 @@ import config
 from config import clean
 from strings import get_string
 from ArchMusic import app
-from ArchMusic.utils.database import (get_lang,
-                                       get_private_served_chats,
-                                       get_served_chats,
-                                       is_suggestion)
+from ArchMusic.utils.database import (
+    get_lang,
+    get_private_served_chats,
+    get_served_chats,
+    is_suggestion,
+)
 
-LEAVE_TIME = config.AUTO_SUGGESTION_TIME
+_LEAVE_TIME = config.AUTO_SUGGESTION_TIME
+_suggestor  = {}
+
+_SUG_STRINGS = [
+    k for k in get_string("en")
+    if k.startswith("sug") and k != "sug_0"
+]
 
 
-strings = []
-suggestor = {}
-
-for item in get_string("en"):
-    if item[0:3] == "sug" and item != "sug_0":
-        strings.append(item)
+def _pick_suggestion(chat_id: int) -> str:
+    previous = _suggestor.get(chat_id)
+    choice   = random.choice(_SUG_STRINGS)
+    if previous and len(_SUG_STRINGS) > 1:
+        while choice.split("_")[1] == previous:
+            choice = random.choice(_SUG_STRINGS)
+    _suggestor[chat_id] = choice.split("_")[1]
+    return choice
 
 
 async def dont_do_this():
-    if config.AUTO_SUGGESTION_MODE == str(True):
-        while not await asyncio.sleep(LEAVE_TIME):
-            try:
-                chats = []
-                if config.PRIVATE_BOT_MODE == str(True):
-                    schats = await get_private_served_chats()
-                else:
-                    schats = await get_served_chats()
-                for chat in schats:
-                    chats.append(int(chat["chat_id"]))
-                total = len(chats)
-                if total >= 100:
-                    total //= 10
-                send_to = 0
-                random.shuffle(chats)
-                for x in chats:
-                    if send_to == total:
-                        break
-                    if x == config.LOG_GROUP_ID:
-                        continue
-                    if not await is_suggestion(x):
-                        continue
-                    try:
-                        language = await get_lang(x)
-                        _ = get_string(language)
-                    except:
-                        _ = get_string("en")
-                    string = random.choice(strings)
-                    previous = suggestor.get(x)
-                    if previous:
-                        while previous == (string.split("_")[1]):
-                            string = random.choice(strings)
-                    suggestor[x] = string.split("_")[1]
-                    try:
-                        msg = _["sug_0"] + _[string]
-                        sent = await app.send_message(x, msg)
-                        if x not in clean:
-                            clean[x] = []
-                        time_now = datetime.now()
-                        put = {
-                            "msg_id": sent.id,
-                            "timer_after": time_now
-                            + timedelta(
-                                minutes=config.CLEANMODE_DELETE_MINS
-                            ),
-                        }
-                        clean[x].append(put)
-                        send_to += 1
-                    except:
-                        pass
-            except:
-                pass
+    if config.AUTO_SUGGESTION_MODE != str(True):
+        return
+    while not await asyncio.sleep(_LEAVE_TIME):
+        try:
+            getter = (
+                get_private_served_chats
+                if config.PRIVATE_BOT_MODE == str(True)
+                else get_served_chats
+            )
+            schats = await getter()
+            chats  = [int(c["chat_id"]) for c in schats]
+            random.shuffle(chats)
+
+            limit   = max(1, len(chats) // 10) if len(chats) >= 100 else len(chats)
+            send_to = 0
+
+            for chat_id in chats:
+                if send_to >= limit:
+                    break
+                if chat_id == config.LOG_GROUP_ID:
+                    continue
+                if not await is_suggestion(chat_id):
+                    continue
+
+                try:
+                    _ = get_string(await get_lang(chat_id))
+                except Exception:
+                    _ = get_string("en")
+
+                string = _pick_suggestion(chat_id)
+                try:
+                    sent = await app.send_message(chat_id, _["sug_0"] + _[string])
+                    clean.setdefault(chat_id, []).append({
+                        "msg_id":      sent.id,
+                        "timer_after": datetime.now() + timedelta(
+                            minutes=config.CLEANMODE_DELETE_MINS
+                        ),
+                    })
+                    send_to += 1
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 asyncio.create_task(dont_do_this())

@@ -1,12 +1,11 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
 # Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
 #
 # All rights reserved.
-#
 
 import asyncio
 import math
@@ -27,13 +26,14 @@ import config
 from strings import get_command
 from ArchMusic import app
 from ArchMusic.misc import HAPP, SUDOERS, XCB
-from ArchMusic.utils.database import (get_active_chats,
-                                       remove_active_chat,
-                                       remove_active_video_chat)
+from ArchMusic.utils.database import (
+    get_active_chats,
+    remove_active_chat,
+    remove_active_video_chat,
+)
 from ArchMusic.utils.decorators.language import language
 from ArchMusic.utils.pastebin import ArchMusicbin
 
-# Commands
 GETLOG_COMMAND = get_command("GETLOG_COMMAND")
 GETVAR_COMMAND = get_command("GETVAR_COMMAND")
 DELVAR_COMMAND = get_command("DELVAR_COMMAND")
@@ -44,40 +44,64 @@ REBOOT_COMMAND = get_command("REBOOT_COMMAND")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+_RESTART_MSG = (
+    f"{config.MUSIC_BOT_NAME} is restarting. "
+    "Please wait 10–15 seconds before playing again."
+)
+_DIRS_TO_CLEAN = ("downloads", "raw_files", "cache")
 
-async def is_heroku():
+
+def _ordinal(n: int) -> str:
+    suffix = "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4]
+    return f"{n}{suffix}"
+
+
+async def _is_heroku() -> bool:
     return "heroku" in socket.getfqdn()
 
+
+async def _notify_active_chats():
+    """Send restart notice to all active chats and remove them from DB."""
+    for chat_id in await get_active_chats():
+        try:
+            await app.send_message(chat_id, _RESTART_MSG)
+            await remove_active_chat(chat_id)
+            await remove_active_video_chat(chat_id)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# /getlog
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(GETLOG_COMMAND) & SUDOERS)
 @language
 async def log_(client, message, _):
     try:
-        if await is_heroku():
+        if await _is_heroku():
             if HAPP is None:
                 return await message.reply_text(_["heroku_1"])
-            data = HAPP.get_log()
-            link = await ArchMusicbin(data)
+            link = await ArchMusicbin(HAPP.get_log())
             return await message.reply_text(link)
-        else:
-            if os.path.exists(config.LOG_FILE_NAME):
-                log = open(config.LOG_FILE_NAME)
-                lines = log.readlines()
-                data = ""
-                try:
-                    NUMB = int(message.text.split(None, 1)[1])
-                except:
-                    NUMB = 100
-                for x in lines[-NUMB:]:
-                    data += x
-                link = await ArchMusicbin(data)
-                return await message.reply_text(link)
-            else:
-                return await message.reply_text(_["heroku_2"])
+        if not os.path.exists(config.LOG_FILE_NAME):
+            return await message.reply_text(_["heroku_2"])
+        try:
+            numb = int(message.text.split(None, 1)[1])
+        except (IndexError, ValueError):
+            numb = 100
+        with open(config.LOG_FILE_NAME) as log:
+            data = "".join(log.readlines()[-numb:])
+        link = await ArchMusicbin(data)
+        return await message.reply_text(link)
     except Exception as e:
-        print(e)
         await message.reply_text(_["heroku_2"])
+        raise
 
+
+# ---------------------------------------------------------------------------
+# /getvar
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(GETVAR_COMMAND) & SUDOERS)
 @language
@@ -85,29 +109,26 @@ async def varget_(client, message, _):
     usage = _["heroku_3"]
     if len(message.command) != 2:
         return await message.reply_text(usage)
-    check_var = message.text.split(None, 2)[1]
-    if await is_heroku():
+    key = message.text.split(None, 2)[1]
+    if await _is_heroku():
         if HAPP is None:
             return await message.reply_text(_["heroku_1"])
-        heroku_config = HAPP.config()
-        if check_var in heroku_config:
-            return await message.reply_text(
-                f"**{check_var}:** `{heroku_config[check_var]}`"
-            )
-        else:
-            return await message.reply_text(_["heroku_4"])
-    else:
-        path = dotenv.find_dotenv()
-        if not path:
-            return await message.reply_text(_["heroku_5"])
-        output = dotenv.get_key(path, check_var)
-        if not output:
-            await message.reply_text(_["heroku_4"])
-        else:
-            return await message.reply_text(
-                f"**{check_var}:** `{str(output)}`"
-            )
+        cfg = HAPP.config()
+        if key in cfg:
+            return await message.reply_text(f"**{key}:** `{cfg[key]}`")
+        return await message.reply_text(_["heroku_4"])
+    path = dotenv.find_dotenv()
+    if not path:
+        return await message.reply_text(_["heroku_5"])
+    value = dotenv.get_key(path, key)
+    if value is None:
+        return await message.reply_text(_["heroku_4"])
+    return await message.reply_text(f"**{key}:** `{value}`")
 
+
+# ---------------------------------------------------------------------------
+# /delvar
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(DELVAR_COMMAND) & SUDOERS)
 @language
@@ -115,27 +136,29 @@ async def vardel_(client, message, _):
     usage = _["heroku_6"]
     if len(message.command) != 2:
         return await message.reply_text(usage)
-    check_var = message.text.split(None, 2)[1]
-    if await is_heroku():
+    key = message.text.split(None, 2)[1]
+    if await _is_heroku():
         if HAPP is None:
             return await message.reply_text(_["heroku_1"])
-        heroku_config = HAPP.config()
-        if check_var in heroku_config:
-            await message.reply_text(_["heroku_7"].format(check_var))
-            del heroku_config[check_var]
-        else:
+        cfg = HAPP.config()
+        if key not in cfg:
             return await message.reply_text(_["heroku_4"])
-    else:
-        path = dotenv.find_dotenv()
-        if not path:
-            return await message.reply_text(_["heroku_5"])
-        output = dotenv.unset_key(path, check_var)
-        if not output[0]:
-            return await message.reply_text(_["heroku_4"])
-        else:
-            await message.reply_text(_["heroku_7"].format(check_var))
-            os.system(f"kill -9 {os.getpid()} && bash start")
+        await message.reply_text(_["heroku_7"].format(key))
+        del cfg[key]
+        return
+    path = dotenv.find_dotenv()
+    if not path:
+        return await message.reply_text(_["heroku_5"])
+    success, _, _ = dotenv.unset_key(path, key)
+    if not success:
+        return await message.reply_text(_["heroku_4"])
+    await message.reply_text(_["heroku_7"].format(key))
+    os.system(f"kill -9 {os.getpid()} && bash start")
 
+
+# ---------------------------------------------------------------------------
+# /setvar
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(SETVAR_COMMAND) & SUDOERS)
 @language
@@ -143,92 +166,87 @@ async def set_var(client, message, _):
     usage = _["heroku_8"]
     if len(message.command) < 3:
         return await message.reply_text(usage)
-    to_set = message.text.split(None, 2)[1].strip()
-    value = message.text.split(None, 2)[2].strip()
-    if await is_heroku():
+    parts = message.text.split(None, 2)
+    key, value = parts[1].strip(), parts[2].strip()
+    if await _is_heroku():
         if HAPP is None:
             return await message.reply_text(_["heroku_1"])
-        heroku_config = HAPP.config()
-        if to_set in heroku_config:
-            await message.reply_text(_["heroku_9"].format(to_set))
-        else:
-            await message.reply_text(_["heroku_10"].format(to_set))
-        heroku_config[to_set] = value
-    else:
-        path = dotenv.find_dotenv()
-        if not path:
-            return await message.reply_text(_["heroku_5"])
-        dotenv.set_key(path, to_set, value)
-        if dotenv.get_key(path, to_set):
-            await message.reply_text(_["heroku_9"].format(to_set))
-        else:
-            await message.reply_text(_["heroku_10"].format(to_set))
-        os.system(f"kill -9 {os.getpid()} && bash start")
+        cfg = HAPP.config()
+        reply_key = _["heroku_9"] if key in cfg else _["heroku_10"]
+        await message.reply_text(reply_key.format(key))
+        cfg[key] = value
+        return
+    path = dotenv.find_dotenv()
+    if not path:
+        return await message.reply_text(_["heroku_5"])
+    dotenv.set_key(path, key, value)
+    reply_key = _["heroku_9"] if dotenv.get_key(path, key) else _["heroku_10"]
+    await message.reply_text(reply_key.format(key))
+    os.system(f"kill -9 {os.getpid()} && bash start")
 
+
+# ---------------------------------------------------------------------------
+# /usage
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(USAGE_COMMAND) & SUDOERS)
 @language
 async def usage_dynos(client, message, _):
-    ### Credits CatUserbot
-    if await is_heroku():
-        if HAPP is None:
-            return await message.reply_text(_["heroku_1"])
-    else:
+    # Credits: CatUserbot
+    if not await _is_heroku():
         return await message.reply_text(_["heroku_11"])
+    if HAPP is None:
+        return await message.reply_text(_["heroku_1"])
     dyno = await message.reply_text(_["heroku_12"])
     Heroku = heroku3.from_key(config.HEROKU_API_KEY)
     account_id = Heroku.account().id
-    useragent = (
-        "Mozilla/5.0 (Linux; Android 10; SM-G975F) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/80.0.3987.149 Mobile Safari/537.36"
-    )
     headers = {
-        "User-Agent": useragent,
+        "User-Agent": (
+            "Mozilla/5.0 (Linux; Android 10; SM-G975F) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/80.0.3987.149 Mobile Safari/537.36"
+        ),
         "Authorization": f"Bearer {config.HEROKU_API_KEY}",
         "Accept": "application/vnd.heroku+json; version=3.account-quotas",
     }
-    path = "/accounts/" + account_id + "/actions/get-quota"
-    r = requests.get("https://api.heroku.com" + path, headers=headers)
+    r = requests.get(
+        f"https://api.heroku.com/accounts/{account_id}/actions/get-quota",
+        headers=headers,
+    )
     if r.status_code != 200:
-        return await dyno.edit("Unable to fetch.")
+        return await dyno.edit("Unable to fetch dyno usage.")
     result = r.json()
     quota = result["account_quota"]
     quota_used = result["quota_used"]
-    remaining_quota = quota - quota_used
-    percentage = math.floor(remaining_quota / quota * 100)
-    minutes_remaining = remaining_quota / 60
-    hours = math.floor(minutes_remaining / 60)
-    minutes = math.floor(minutes_remaining % 60)
-    App = result["apps"]
-    try:
-        App[0]["quota_used"]
-    except IndexError:
-        AppQuotaUsed = 0
-        AppPercentage = 0
-    else:
-        AppQuotaUsed = App[0]["quota_used"] / 60
-        AppPercentage = math.floor(App[0]["quota_used"] * 100 / quota)
-    AppHours = math.floor(AppQuotaUsed / 60)
-    AppMinutes = math.floor(AppQuotaUsed % 60)
+    remaining = quota - quota_used
+    percentage = math.floor(remaining / quota * 100)
+    hours = math.floor(remaining / 3600)
+    minutes = math.floor((remaining % 3600) / 60)
+    apps = result.get("apps", [])
+    app_used = apps[0]["quota_used"] if apps else 0
+    app_pct = math.floor(app_used * 100 / quota) if apps else 0
+    app_h = math.floor(app_used / 3600)
+    app_m = math.floor((app_used % 3600) / 60)
     await asyncio.sleep(1.5)
-    text = f"""
-**DYNO USAGE**
+    text = (
+        "**DYNO USAGE**\n\n"
+        f"<u>App Usage:</u>\n"
+        f"Total Used: `{app_h}`**h** `{app_m}`**m** [`{app_pct}`**%**]\n\n"
+        f"<u>Remaining Quota:</u>\n"
+        f"Total Left: `{hours}`**h** `{minutes}`**m** [`{percentage}`**%**]"
+    )
+    await dyno.edit(text)
 
-<u>Usage:</u>
-Total Used: `{AppHours}`**h**  `{AppMinutes}`**m**  [`{AppPercentage}`**%**]
 
-<u>Remaining Quota:</u>
-Total Left: `{hours}`**h**  `{minutes}`**m**  [`{percentage}`**%**]"""
-    return await dyno.edit(text)
-
+# ---------------------------------------------------------------------------
+# /update
+# ---------------------------------------------------------------------------
 
 @app.on_message(filters.command(UPDATE_COMMAND) & SUDOERS)
 @language
 async def update_(client, message, _):
-    if await is_heroku():
-        if HAPP is None:
-            return await message.reply_text(_["heroku_1"])
+    if await _is_heroku() and HAPP is None:
+        return await message.reply_text(_["heroku_1"])
     response = await message.reply_text(_["heroku_13"])
     try:
         repo = Repo()
@@ -236,117 +254,81 @@ async def update_(client, message, _):
         return await response.edit(_["heroku_14"])
     except InvalidGitRepositoryError:
         return await response.edit(_["heroku_15"])
-    to_exc = f"git fetch origin {config.UPSTREAM_BRANCH} &> /dev/null"
-    os.system(to_exc)
+
+    os.system(f"git fetch origin {config.UPSTREAM_BRANCH} &> /dev/null")
     await asyncio.sleep(7)
-    verification = ""
-    REPO_ = repo.remotes.origin.url.split(".git")[
-        0
-    ]  # main git repository
-    for checks in repo.iter_commits(
-        f"HEAD..origin/{config.UPSTREAM_BRANCH}"
-    ):
-        verification = str(checks.count())
-    if verification == "":
+
+    commits = list(repo.iter_commits(f"HEAD..origin/{config.UPSTREAM_BRANCH}"))
+    if not commits:
         return await response.edit("Bot is up-to-date!")
+
+    REPO_ = repo.remotes.origin.url.split(".git")[0]
     updates = ""
-    ordinal = lambda format: "%d%s" % (
-        format,
-        "tsnrhtdd"[
-            (format // 10 % 10 != 1)
-            * (format % 10 < 4)
-            * format
-            % 10 :: 4
-        ],
-    )
-    for info in repo.iter_commits(
-        f"HEAD..origin/{config.UPSTREAM_BRANCH}"
-    ):
-        updates += f"<b>➣ #{info.count()}: [{info.summary}]({REPO_}/commit/{info}) by -> {info.author}</b>\n\t\t\t\t<b>➥ Commited on:</b> {ordinal(int(datetime.fromtimestamp(info.committed_date).strftime('%d')))} {datetime.fromtimestamp(info.committed_date).strftime('%b')}, {datetime.fromtimestamp(info.committed_date).strftime('%Y')}\n\n"
-    _update_response_ = "<b>A new update is available for the Bot!</b>\n\n➣ Pushing Updates Now</code>\n\n**<u>Updates:</u>**\n\n"
-    _final_updates_ = _update_response_ + updates
-    if len(_final_updates_) > 4096:
+    for info in commits:
+        day = _ordinal(int(datetime.fromtimestamp(info.committed_date).strftime("%d")))
+        date_str = datetime.fromtimestamp(info.committed_date).strftime(f"{day} %b, %Y")
+        updates += (
+            f"<b>➣ #{info.count()}: [{info.summary}]({REPO_}/commit/{info})"
+            f" by → {info.author}</b>\n"
+            f"\t\t<b>➥ Committed on:</b> {date_str}\n\n"
+        )
+
+    header = "<b>A new update is available!</b>\n\n➣ Pushing Updates Now\n\n<u>Updates:</u>\n\n"
+    full_text = header + updates
+    if len(full_text) > 4096:
         url = await ArchMusicbin(updates)
         nrs = await response.edit(
-            f"<b>A new update is available for the Bot!</b>\n\n➣ Pushing Updates Now</code>\n\n**<u>Updates:</u>**\n\n[Click Here to checkout Updates]({url})"
+            f"<b>A new update is available!</b>\n\n"
+            f"➣ Pushing Updates Now\n\n"
+            f"[Click Here to view updates]({url})"
         )
     else:
-        nrs = await response.edit(
-            _final_updates_, disable_web_page_preview=True
-        )
+        nrs = await response.edit(full_text, disable_web_page_preview=True)
+
     os.system("git stash &> /dev/null && git pull")
-    if await is_heroku():
+
+    await _notify_active_chats()
+    if await _is_heroku():
         try:
-            served_chats = await get_active_chats()
-            for x in served_chats:
-                try:
-                    await app.send_message(
-                        x,
-                        f"{config.MUSIC_BOT_NAME} has just restarted herself. Sorry for the issues.\n\nStart playing after 10-15 seconds again.",
-                    )
-                    await remove_active_chat(x)
-                    await remove_active_video_chat(x)
-                except Exception:
-                    pass
             await response.edit(
-                f"{nrs.text}\n\nBot was updated successfully on Heroku! Now, wait for 2 - 3 mins until the bot restarts!"
+                f"{nrs.text}\n\nUpdated on Heroku! Wait 2–3 mins for the bot to restart."
             )
             os.system(
-                f"{XCB[5]} {XCB[7]} {XCB[9]}{XCB[4]}{XCB[0]*2}{XCB[6]}{XCB[4]}{XCB[8]}{XCB[1]}{XCB[5]}{XCB[2]}{XCB[6]}{XCB[2]}{XCB[3]}{XCB[0]}{XCB[10]}{XCB[2]}{XCB[5]} {XCB[11]}{XCB[4]}{XCB[12]}"
+                f"{XCB[5]} {XCB[7]} {XCB[9]}{XCB[4]}{XCB[0]*2}{XCB[6]}{XCB[4]}"
+                f"{XCB[8]}{XCB[1]}{XCB[5]}{XCB[2]}{XCB[6]}{XCB[2]}{XCB[3]}"
+                f"{XCB[0]}{XCB[10]}{XCB[2]}{XCB[5]} {XCB[11]}{XCB[4]}{XCB[12]}"
             )
-            return
         except Exception as err:
             await response.edit(
-                f"{nrs.text}\n\nSomething went wrong while initiating reboot! Please try again later or check logs for more info."
+                f"{nrs.text}\n\nReboot failed. Check logs for details."
             )
-            return await app.send_message(
+            await app.send_message(
                 config.LOG_GROUP_ID,
-                f"AN EXCEPTION OCCURRED AT #UPDATER DUE TO: <code>{err}</code>",
+                f"#UPDATER exception: <code>{err}</code>",
             )
     else:
-        served_chats = await get_active_chats()
-        for x in served_chats:
-            try:
-                await app.send_message(
-                    x,
-                    f"{config.MUSIC_BOT_NAME} has just restarted herself. Sorry for the issues.\n\nStart playing after 10-15 seconds again.",
-                )
-                await remove_active_chat(x)
-                await remove_active_video_chat(x)
-            except Exception:
-                pass
         await response.edit(
-            f"{nrs.text}\n\nBot was updated successfully! Now, wait for 1 - 2 mins until the bot reboots!"
+            f"{nrs.text}\n\nUpdated successfully! Wait 1–2 mins for the bot to reboot."
         )
         os.system("pip3 install -r requirements.txt")
         os.system(f"kill -9 {os.getpid()} && bash start")
         exit()
 
 
+# ---------------------------------------------------------------------------
+# /reboot
+# ---------------------------------------------------------------------------
+
 @app.on_message(filters.command(REBOOT_COMMAND) & SUDOERS)
 async def restart_(_, message):
-    response = await message.reply_text("Restarting....")
-    served_chats = await get_active_chats()
-    for x in served_chats:
+    response = await message.reply_text("Restarting…")
+    await _notify_active_chats()
+    for d in _DIRS_TO_CLEAN:
         try:
-            await app.send_message(
-                x,
-                f"{config.MUSIC_BOT_NAME} has just restarted herself. Sorry for the issues.\n\nStart playing after 10-15 seconds again.",
-            )
-            await remove_active_chat(x)
-            await remove_active_video_chat(x)
+            shutil.rmtree(d)
         except Exception:
             pass
-    A = "downloads"
-    B = "raw_files"
-    C = "cache"
-    try:
-        shutil.rmtree(A)
-        shutil.rmtree(B)
-        shutil.rmtree(C)
-    except:
-        pass
     await response.edit(
-        "Reboot has been initiated successfully! Wait for 1 - 2 minutes until the bot restarts."
+        "Reboot initiated. Wait 1–2 minutes for the bot to restart."
     )
     os.system(f"kill -9 {os.getpid()} && bash start")

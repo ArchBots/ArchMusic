@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -19,266 +19,241 @@ from pyrogram.raw import types
 import config
 from config import adminlist, chatstats, clean, userstats
 from strings import get_command
-from ArchMusic import app, userbot
+from ArchMusic import app
 from ArchMusic.misc import SUDOERS
-from ArchMusic.utils.database import (get_active_chats,
-                                       get_authuser_names, get_client,
-                                       get_particular_top,
-                                       get_served_chats,
-                                       get_served_users, get_user_top,
-                                       is_cleanmode_on, set_queries,
-                                       update_particular_top,
-                                       update_user_top)
+from ArchMusic.utils.database import (
+    get_active_chats,
+    get_authuser_names,
+    get_client,
+    get_particular_top,
+    get_served_chats,
+    get_served_users,
+    get_user_top,
+    is_cleanmode_on,
+    set_queries,
+    update_particular_top,
+    update_user_top,
+)
 from ArchMusic.utils.decorators.language import language
 from ArchMusic.utils.formatters import alpha_to_int
 
 BROADCAST_COMMAND = get_command("BROADCAST_COMMAND")
-AUTO_DELETE = config.CLEANMODE_DELETE_MINS
-AUTO_SLEEP = 5
-IS_BROADCASTING = False
-cleanmode_group = 15
+
+_AUTO_DELETE      = config.CLEANMODE_DELETE_MINS
+_AUTO_SLEEP       = 5
+_SKIP_CHAT        = -1001764725348
+_IS_BROADCASTING  = False
+_cleanmode_group  = 15
 
 
-@app.on_raw_update(group=cleanmode_group)
+def _parse_flags(text: str) -> dict:
+    return {
+        "pin":       "-pin" in text and "-pinloud" not in text,
+        "pinloud":   "-pinloud" in text,
+        "nobot":     "-nobot" in text,
+        "assistant": "-assistant" in text,
+        "user":      "-user" in text,
+    }
+
+
+@app.on_raw_update(group=_cleanmode_group)
 async def clean_mode(client, update, users, chats):
-    global IS_BROADCASTING
-    if IS_BROADCASTING:
+    if _IS_BROADCASTING:
         return
     try:
         if not isinstance(update, types.UpdateReadChannelOutbox):
             return
-    except:
+    except Exception:
         return
-    if users:
+    if users or chats:
         return
-    if chats:
-        return
+    chat_id    = int(f"-100{update.channel_id}")
     message_id = update.max_id
-    chat_id = int(f"-100{update.channel_id}")
     if not await is_cleanmode_on(chat_id):
         return
-    if chat_id not in clean:
-        clean[chat_id] = []
-    time_now = datetime.now()
-    put = {
-        "msg_id": message_id,
-        "timer_after": time_now + timedelta(minutes=AUTO_DELETE),
-    }
-    clean[chat_id].append(put)
+    clean.setdefault(chat_id, []).append({
+        "msg_id":      message_id,
+        "timer_after": datetime.now() + timedelta(minutes=_AUTO_DELETE),
+    })
     await set_queries(1)
 
 
 @app.on_message(filters.command(BROADCAST_COMMAND) & SUDOERS)
 @language
-async def braodcast_message(client, message, _):
-    global IS_BROADCASTING
+async def broadcast_message(client, message, _):
+    global _IS_BROADCASTING
+
     if message.reply_to_message:
-        x = message.reply_to_message.id
-        y = message.chat.id
+        src_chat = message.chat.id
+        src_msg  = message.reply_to_message.id
+        query    = None
     else:
         if len(message.command) < 2:
             return await message.reply_text(_["broad_5"])
-        query = message.text.split(None, 1)[1]
-        if "-pin" in query:
-            query = query.replace("-pin", "")
-        if "-nobot" in query:
-            query = query.replace("-nobot", "")
-        if "-pinloud" in query:
-            query = query.replace("-pinloud", "")
-        if "-assistant" in query:
-            query = query.replace("-assistant", "")
-        if "-user" in query:
-            query = query.replace("-user", "")
-        if query == "":
+        raw   = message.text.split(None, 1)[1]
+        query = raw
+        for flag in ("-pin", "-nobot", "-pinloud", "-assistant", "-user"):
+            query = query.replace(flag, "")
+        query = query.strip()
+        if not query:
             return await message.reply_text(_["broad_6"])
+        src_chat = src_msg = None
 
-    IS_BROADCASTING = True
+    flags = _parse_flags(message.text)
+    _IS_BROADCASTING = True
 
-    # Bot broadcast inside chats
-    if "-nobot" not in message.text:
-        sent = 0
-        pin = 0
-        chats = []
-        schats = await get_served_chats()
-        for chat in schats:
-            chats.append(int(chat["chat_id"]))
-        for i in chats:
-            if i == -1001764725348:
-                continue
-            try:
-                m = (
-                    await app.forward_messages(i, y, x)
-                    if message.reply_to_message
-                    else await app.send_message(i, text=query)
-                )
-                if "-pin" in message.text:
-                    try:
-                        await m.pin(disable_notification=True)
-                        pin += 1
-                    except Exception:
-                        continue
-                elif "-pinloud" in message.text:
-                    try:
-                        await m.pin(disable_notification=False)
-                        pin += 1
-                    except Exception:
-                        continue
-                sent += 1
-            except FloodWait as e:
-                flood_time = int(e.value)
-                if flood_time > 200:
-                    continue
-                await asyncio.sleep(flood_time)
-            except Exception:
-                continue
-        try:
-            await message.reply_text(_["broad_1"].format(sent, pin))
-        except:
-            pass
+    async def _send(target, client_=app):
+        if src_msg:
+            return await client_.forward_messages(target, src_chat, src_msg)
+        return await client_.send_message(target, text=query)
 
-    # Bot broadcasting to users
-    if "-user" in message.text:
-        susr = 0
-        served_users = []
-        susers = await get_served_users()
-        for user in susers:
-            served_users.append(int(user["user_id"]))
-        for i in served_users:
-            try:
-                m = (
-                    await app.forward_messages(i, y, x)
-                    if message.reply_to_message
-                    else await app.send_message(i, text=query)
-                )
-                susr += 1
-            except FloodWait as e:
-                flood_time = int(e.value)
-                if flood_time > 200:
-                    continue
-                await asyncio.sleep(flood_time)
-            except Exception:
-                pass
-        try:
-            await message.reply_text(_["broad_7"].format(susr))
-        except:
-            pass
-
-    # Bot broadcasting by assistant
-    if "-assistant" in message.text:
-        aw = await message.reply_text(_["broad_2"])
-        text = _["broad_3"]
-        from ArchMusic.core.userbot import assistants
-
-        for num in assistants:
-            sent = 0
-            client = await get_client(num)
-            async for dialog in client.get_dialogs():
-                if dialog.chat.id == -1001764725348:
+    try:
+        if not flags["nobot"]:
+            sent = pin = 0
+            for chat in await get_served_chats():
+                chat_id = int(chat["chat_id"])
+                if chat_id == _SKIP_CHAT:
                     continue
                 try:
-                    await client.forward_messages(
-                        dialog.chat.id, y, x
-                    ) if message.reply_to_message else await client.send_message(
-                        dialog.chat.id, text=query
-                    )
+                    m = await _send(chat_id)
+                    if flags["pin"]:
+                        try:
+                            await m.pin(disable_notification=True)
+                            pin += 1
+                        except Exception:
+                            pass
+                    elif flags["pinloud"]:
+                        try:
+                            await m.pin(disable_notification=False)
+                            pin += 1
+                        except Exception:
+                            pass
                     sent += 1
                 except FloodWait as e:
-                    flood_time = int(e.value)
-                    if flood_time > 200:
-                        continue
-                    await asyncio.sleep(flood_time)
-                except Exception as e:
-                    print(e)
+                    if int(e.value) <= 200:
+                        await asyncio.sleep(e.value)
+                except Exception:
                     continue
-            text += _["broad_4"].format(num, sent)
-        try:
-            await aw.edit_text(text)
-        except:
-            pass
-    IS_BROADCASTING = False
+            try:
+                await message.reply_text(_["broad_1"].format(sent, pin))
+            except Exception:
+                pass
+
+        if flags["user"]:
+            susr = 0
+            for user in await get_served_users():
+                user_id = int(user["user_id"])
+                try:
+                    await _send(user_id)
+                    susr += 1
+                except FloodWait as e:
+                    if int(e.value) <= 200:
+                        await asyncio.sleep(e.value)
+                except Exception:
+                    pass
+            try:
+                await message.reply_text(_["broad_7"].format(susr))
+            except Exception:
+                pass
+
+        if flags["assistant"]:
+            from ArchMusic.core.userbot import assistants
+            aw   = await message.reply_text(_["broad_2"])
+            text = _["broad_3"]
+            for num in assistants:
+                sent   = 0
+                aclient = await get_client(num)
+                async for dialog in aclient.get_dialogs():
+                    if dialog.chat.id == _SKIP_CHAT:
+                        continue
+                    try:
+                        await _send(dialog.chat.id, aclient)
+                        sent += 1
+                    except FloodWait as e:
+                        if int(e.value) <= 200:
+                            await asyncio.sleep(e.value)
+                    except Exception:
+                        continue
+                text += _["broad_4"].format(num, sent)
+            try:
+                await aw.edit_text(text)
+            except Exception:
+                pass
+
+    finally:
+        _IS_BROADCASTING = False
+
+
+async def _upsert_top(getter, updater, key, vidid, title):
+    spot = await getter(key, vidid)
+    next_spot = (spot["spot"] + 1) if spot else 1
+    await updater(key, vidid, {"spot": next_spot, "title": title})
 
 
 async def auto_clean():
-    while not await asyncio.sleep(AUTO_SLEEP):
+    while not await asyncio.sleep(_AUTO_SLEEP):
         try:
-            for chat_id in chatstats:
-                for dic in chatstats[chat_id]:
-                    vidid = dic["vidid"]
-                    title = dic["title"]
+            for chat_id in list(chatstats):
+                for dic in list(chatstats[chat_id]):
                     chatstats[chat_id].pop(0)
-                    spot = await get_particular_top(chat_id, vidid)
-                    if spot:
-                        spot = spot["spot"]
-                        next_spot = spot + 1
-                        new_spot = {"spot": next_spot, "title": title}
-                        await update_particular_top(
-                            chat_id, vidid, new_spot
-                        )
-                    else:
-                        next_spot = 1
-                        new_spot = {"spot": next_spot, "title": title}
-                        await update_particular_top(
-                            chat_id, vidid, new_spot
-                        )
-            for user_id in userstats:
-                for dic in userstats[user_id]:
-                    vidid = dic["vidid"]
-                    title = dic["title"]
-                    userstats[user_id].pop(0)
-                    spot = await get_user_top(user_id, vidid)
-                    if spot:
-                        spot = spot["spot"]
-                        next_spot = spot + 1
-                        new_spot = {"spot": next_spot, "title": title}
-                        await update_user_top(
-                            user_id, vidid, new_spot
-                        )
-                    else:
-                        next_spot = 1
-                        new_spot = {"spot": next_spot, "title": title}
-                        await update_user_top(
-                            user_id, vidid, new_spot
-                        )
-        except:
-            continue
+                    await _upsert_top(
+                        get_particular_top, update_particular_top,
+                        chat_id, dic["vidid"], dic["title"]
+                    )
+        except Exception:
+            pass
+
         try:
-            for chat_id in clean:
+            for user_id in list(userstats):
+                for dic in list(userstats[user_id]):
+                    userstats[user_id].pop(0)
+                    await _upsert_top(
+                        get_user_top, update_user_top,
+                        user_id, dic["vidid"], dic["title"]
+                    )
+        except Exception:
+            pass
+
+        try:
+            for chat_id in list(clean):
                 if chat_id == config.LOG_GROUP_ID:
                     continue
-                for x in clean[chat_id]:
-                    if datetime.now() > x["timer_after"]:
+                remaining = []
+                for entry in clean[chat_id]:
+                    if datetime.now() > entry["timer_after"]:
                         try:
-                            await app.delete_messages(
-                                chat_id, x["msg_id"]
-                            )
+                            await app.delete_messages(chat_id, entry["msg_id"])
                         except FloodWait as e:
                             await asyncio.sleep(e.value)
-                        except:
-                            continue
+                            remaining.append(entry)
+                        except Exception:
+                            pass
                     else:
-                        continue
-        except:
-            continue
+                        remaining.append(entry)
+                clean[chat_id] = remaining
+        except Exception:
+            pass
+
         try:
-            served_chats = await get_active_chats()
-            for chat_id in served_chats:
-                if chat_id not in adminlist:
-                    adminlist[chat_id] = []
-                    admins = (
-                        app.get_chat_members(
-                            chat_id, 
-                            filter=ChatMembersFilter.ADMINISTRATORS
-                        )
-                    ).privileges
-                    async for user in admins:
-                        if user.can_manage_video_chats:
-                            adminlist[chat_id].append(user.user.id)
-                    authusers = await get_authuser_names(chat_id)
-                    for user in authusers:
-                        user_id = await alpha_to_int(user)
-                        adminlist[chat_id].append(user_id)
-        except:
-            continue
+            for chat_id in await get_active_chats():
+                if chat_id in adminlist:
+                    continue
+                adminlist[chat_id] = []
+                try:
+                    async for member in app.get_chat_members(
+                        chat_id, filter=ChatMembersFilter.ADMINISTRATORS
+                    ):
+                        if (
+                            member.privileges
+                            and member.privileges.can_manage_video_chats
+                        ):
+                            adminlist[chat_id].append(member.user.id)
+                except Exception:
+                    pass
+                for token in await get_authuser_names(chat_id):
+                    adminlist[chat_id].append(await alpha_to_int(token))
+        except Exception:
+            pass
 
 
 asyncio.create_task(auto_clean())

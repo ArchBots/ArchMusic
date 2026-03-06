@@ -1,12 +1,11 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
 # Please see < https://github.com/ArchBots/ArchMusic/blob/master/LICENSE >
 #
 # All rights reserved.
-#
 
 import asyncio
 
@@ -22,113 +21,61 @@ from ArchMusic.utils.formatters import convert_bytes
 VARS_COMMAND = get_command("VARS_COMMAND")
 
 
-@app.on_message(filters.command(VARS_COMMAND) & SUDOERS)
-async def varsFunc(client, message):
-    mystic = await message.reply_text(
-        "Please wait.. Getting your config"
-    )
-    v_limit = await get_video_limit()
-    bot_name = config.MUSIC_BOT_NAME
-    up_r = f"[Repo]({config.UPSTREAM_REPO})"
-    up_b = config.UPSTREAM_BRANCH
-    auto_leave = config.AUTO_LEAVE_ASSISTANT_TIME
-    yt_sleep = config.YOUTUBE_DOWNLOAD_EDIT_SLEEP
-    tg_sleep = config.TELEGRAM_DOWNLOAD_EDIT_SLEEP
-    playlist_limit = config.SERVER_PLAYLIST_LIMIT
-    fetch_playlist = config.PLAYLIST_FETCH_LIMIT
-    song = config.SONG_DOWNLOAD_DURATION
-    play_duration = config.DURATION_LIMIT_MIN
-    cm = config.CLEANMODE_DELETE_MINS
-    auto_sug = config.AUTO_SUGGESTION_TIME
-    if config.AUTO_LEAVING_ASSISTANT == str(True):
-        ass = "Yes"
-    else:
-        ass = "No"
-    if config.PRIVATE_BOT_MODE == str(True):
-        pvt = "Yes"
-    else:
-        pvt = "No"
-    if config.AUTO_SUGGESTION_MODE == str(True):
-        a_sug = "Yes"
-    else:
-        a_sug = "No"
-    if config.AUTO_DOWNLOADS_CLEAR == str(True):
-        down = "Yes"
-    else:
-        down = "No"
+def _yn(value) -> str:
+    """Return 'Yes' if value is truthy string 'True', else 'No'."""
+    return "Yes" if value == str(True) else "No"
 
-    if not config.GITHUB_REPO:
-        git = "No"
-    else:
-        git = f"[Repo]({config.GITHUB_REPO})"
-    if not config.START_IMG_URL:
-        start = "No"
-    else:
-        start = f"[Image]({config.START_IMG_URL})"
-    if not config.SUPPORT_CHANNEL:
-        s_c = "No"
-    else:
-        s_c = f"[Channel]({config.SUPPORT_CHANNEL})"
-    if not config.SUPPORT_GROUP:
-        s_g = "No"
-    else:
-        s_g = f"[Group]({config.SUPPORT_GROUP})"
-    if not config.GIT_TOKEN:
-        token = "No"
-    else:
-        token = "Yes"
-    if (
-        not config.SPOTIFY_CLIENT_ID
-        and not config.SPOTIFY_CLIENT_SECRET
-    ):
-        sotify = "No"
-    else:
-        sotify = "Yes"
-    owners = [str(ids) for ids in config.OWNER_ID]
-    owner_id = " ,".join(owners)
-    tg_aud = convert_bytes(config.TG_AUDIO_FILESIZE_LIMIT)
-    tg_vid = convert_bytes(config.TG_VIDEO_FILESIZE_LIMIT)
+
+def _link(url: str, label: str) -> str:
+    return f"[{label}]({url})" if url else "No"
+
+
+@app.on_message(filters.command(VARS_COMMAND) & SUDOERS)
+async def vars_func(client, message):
+    mystic = await message.reply_text("Please wait… Getting your config")
+    v_limit = await get_video_limit()
+    owners = ", ".join(str(i) for i in config.OWNER_ID)
+
     text = f"""**MUSIC BOT CONFIG:**
 
 **<u>Basic Vars:</u>**
-`MUSIC_BOT_NAME` : **{bot_name}**
-`DURATION_LIMIT` : **{play_duration} min**
-`SONG_DOWNLOAD_DURATION_LIMIT` :** {song} min**
-`OWNER_ID` : **{owner_id}**
-    
-**<u>Custom Repo Vars:</u>**
-`UPSTREAM_REPO` : **{up_r}**
-`UPSTREAM_BRANCH` : **{up_b}**
-`GITHUB_REPO` :** {git}**
-`GIT_TOKEN `:** {token}**
+`MUSIC_BOT_NAME` : **{config.MUSIC_BOT_NAME}**
+`DURATION_LIMIT` : **{config.DURATION_LIMIT_MIN} min**
+`SONG_DOWNLOAD_DURATION_LIMIT` : **{config.SONG_DOWNLOAD_DURATION} min**
+`OWNER_ID` : **{owners}**
 
+**<u>Custom Repo Vars:</u>**
+`UPSTREAM_REPO` : **[Repo]({config.UPSTREAM_REPO})**
+`UPSTREAM_BRANCH` : **{config.UPSTREAM_BRANCH}**
+`GITHUB_REPO` : **{_link(config.GITHUB_REPO, "Repo")}**
+`GIT_TOKEN` : **{"Yes" if config.GIT_TOKEN else "No"}**
 
 **<u>Bot Vars:</u>**
-`AUTO_LEAVING_ASSISTANT` : **{ass}**
-`ASSISTANT_LEAVE_TIME` : **{auto_leave} seconds**
-`AUTO_SUGGESTION_MODE` :** {a_sug}**
-`AUTO_SUGGESTION_TIME` : **{auto_sug} seconds**
-`AUTO_DOWNLOADS_CLEAR` : **{down}**
-`PRIVATE_BOT_MODE` : **{pvt}**
-`YOUTUBE_EDIT_SLEEP` : **{yt_sleep} seconds**
-`TELEGRAM_EDIT_SLEEP` :** {tg_sleep} seconds**
-`CLEANMODE_MINS` : **{cm} mins**
+`AUTO_LEAVING_ASSISTANT` : **{_yn(config.AUTO_LEAVING_ASSISTANT)}**
+`ASSISTANT_LEAVE_TIME` : **{config.AUTO_LEAVE_ASSISTANT_TIME} seconds**
+`AUTO_SUGGESTION_MODE` : **{_yn(config.AUTO_SUGGESTION_MODE)}**
+`AUTO_SUGGESTION_TIME` : **{config.AUTO_SUGGESTION_TIME} seconds**
+`AUTO_DOWNLOADS_CLEAR` : **{_yn(config.AUTO_DOWNLOADS_CLEAR)}**
+`PRIVATE_BOT_MODE` : **{_yn(config.PRIVATE_BOT_MODE)}**
+`YOUTUBE_EDIT_SLEEP` : **{config.YOUTUBE_DOWNLOAD_EDIT_SLEEP} seconds**
+`TELEGRAM_EDIT_SLEEP` : **{config.TELEGRAM_DOWNLOAD_EDIT_SLEEP} seconds**
+`CLEANMODE_MINS` : **{config.CLEANMODE_DELETE_MINS} mins**
 `VIDEO_STREAM_LIMIT` : **{v_limit} chats**
-`SERVER_PLAYLIST_LIMIT` :** {playlist_limit}**
-`PLAYLIST_FETCH_LIMIT` :** {fetch_playlist}**
+`SERVER_PLAYLIST_LIMIT` : **{config.SERVER_PLAYLIST_LIMIT}**
+`PLAYLIST_FETCH_LIMIT` : **{config.PLAYLIST_FETCH_LIMIT}**
 
 **<u>Spotify Vars:</u>**
-`SPOTIFY_CLIENT_ID` :** {sotify}**
-`SPOTIFY_CLIENT_SECRET` : **{sotify}**
+`SPOTIFY_CLIENT_ID` : **{"Yes" if config.SPOTIFY_CLIENT_ID else "No"}**
+`SPOTIFY_CLIENT_SECRET` : **{"Yes" if config.SPOTIFY_CLIENT_SECRET else "No"}**
 
 **<u>Playsize Vars:</u>**
-`TG_AUDIO_FILESIZE_LIMIT` :** {tg_aud}**
-`TG_VIDEO_FILESIZE_LIMIT` :** {tg_vid}**
+`TG_AUDIO_FILESIZE_LIMIT` : **{convert_bytes(config.TG_AUDIO_FILESIZE_LIMIT)}**
+`TG_VIDEO_FILESIZE_LIMIT` : **{convert_bytes(config.TG_VIDEO_FILESIZE_LIMIT)}**
 
 **<u>URL Vars:</u>**
-`SUPPORT_CHANNEL` : **{s_c}**
-`SUPPORT_GROUP` : ** {s_g}**
-`START_IMG_URL` : ** {start}**
-    """
+`SUPPORT_CHANNEL` : **{_link(config.SUPPORT_CHANNEL, "Channel")}**
+`SUPPORT_GROUP` : **{_link(config.SUPPORT_GROUP, "Group")}**
+`START_IMG_URL` : **{_link(config.START_IMG_URL, "Image")}**
+"""
     await asyncio.sleep(1)
     await mystic.edit_text(text)

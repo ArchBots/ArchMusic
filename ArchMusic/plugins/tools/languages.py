@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2021-2023 by ArchBots@Github, < https://github.com/ArchBots >.
+# Copyright (C) 2021-2026 by ArchBots@Github, < https://github.com/ArchBots >.
 #
 # This file is part of < https://github.com/ArchBots/ArchMusic > project,
 # and is released under the "GNU v3.0 License Agreement".
@@ -8,43 +8,41 @@
 # All rights reserved.
 #
 
-from pykeyboard import InlineKeyboard
 from pyrogram import filters
-from pyrogram.types import InlineKeyboardButton, Message
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from config import BANNED_USERS
 from strings import get_command, get_string, languages_present
 from ArchMusic import app
 from ArchMusic.utils.database import get_lang, set_lang
-from ArchMusic.utils.decorators import (ActualAdminCB, language,
-                                         languageCB)
+from ArchMusic.utils.decorators import ActualAdminCB, language, languageCB
 
-# Languages Available
+
+def _chunk(lst, size):
+    for i in range(0, len(lst), size):
+        yield lst[i : i + size]
 
 
 def lanuages_keyboard(_):
-    keyboard = InlineKeyboard(row_width=3)
-    keyboard.add(
-        *[
-            (
-                InlineKeyboardButton(
-                    text=languages_present[i],
-                    callback_data=f"languages:{i}",
-                )
-            )
-            for i in languages_present
-        ]
-    )
-    keyboard.row(
+    buttons = [
+        InlineKeyboardButton(
+            text=languages_present[i],
+            callback_data=f"languages:{i}",
+        )
+        for i in languages_present
+    ]
+    rows = [list(row) for row in _chunk(buttons, 3)]
+    rows.append([
         InlineKeyboardButton(
             text=_["BACK_BUTTON"],
-            callback_data=f"settingsback_helper",
+            callback_data="settingsback_helper",
         ),
         InlineKeyboardButton(
-            text=_["CLOSE_BUTTON"], callback_data=f"close"
+            text=_["CLOSE_BUTTON"],
+            callback_data="close",
         ),
-    )
-    return keyboard
+    ])
+    return InlineKeyboardMarkup(rows)
 
 
 LANGUAGE_COMMAND = get_command("LANGUAGE_COMMAND")

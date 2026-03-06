@@ -8,335 +8,83 @@
 # All rights reserved.
 #
 
-import asyncio
-import os
-from random import randint
+from typing import Union
 
-from pyrogram import filters
-from pyrogram.errors import FloodWait
-from pyrogram.types import CallbackQuery, InputMediaPhoto, Message
-
-import config
-from config import BANNED_USERS
-from strings import get_command
-from ArchMusic import app
+from config import autoclean, chatstats, userstats
+from config.config import time_to_seconds
 from ArchMusic.misc import db
-from ArchMusic.utils import (ArchMusicbin, get_channeplayCB,
-                              seconds_to_min)
-from ArchMusic.utils.database import (get_cmode, is_active_chat,
-                                       is_music_playing)
-from ArchMusic.utils.decorators.language import language, languageCB
-from ArchMusic.utils.inline import queue_back_markup, queue_markup
-
-###Commands
-QUEUE_COMMAND = get_command("QUEUE_COMMAND")
-
-basic = {}
 
 
-def get_image(videoid):
-    if os.path.isfile(f"cache/{videoid}.png"):
-        return f"cache/{videoid}.png"
-    else:
-        return config.YOUTUBE_IMG_URL
+def _build_entry(
+    original_chat_id, file, title, duration, user, vidid, stream, duration_in_seconds
+):
+    return {
+        "title": title,
+        "dur": duration,
+        "streamtype": stream,
+        "by": user,
+        "chat_id": original_chat_id,
+        "file": file,
+        "vidid": vidid,
+        "seconds": duration_in_seconds,
+        "played": 0,
+    }
 
 
-def get_duration(playing):
-    file_path = playing[0]["file"]
-    if "index_" in file_path or "live_" in file_path:
-        return "Unknown"
-    duration_seconds = int(playing[0]["seconds"])
-    if duration_seconds == 0:
-        return "Unknown"
-    else:
-        return "Inline"
-
-
-@app.on_message(
-    filters.command(QUEUE_COMMAND) 
-    & filters.group 
-    & ~BANNED_USERS
-)
-@language
-async def ping_com(client, message: Message, _):
-    if message.command[0][0] == "c":
-        chat_id = await get_cmode(message.chat.id)
-        if chat_id is None:
-            return await message.reply_text(_["setting_12"])
-        try:
-            await app.get_chat(chat_id)
-        except:
-            return await message.reply_text(_["cplay_4"])
-        cplay = True
-    else:
-        chat_id = message.chat.id
-        cplay = False
-    if not await is_active_chat(chat_id):
-        return await message.reply_text(_["general_6"])
-    got = db.get(chat_id)
-    if not got:
-        return await message.reply_text(_["queue_2"])
-    file = got[0]["file"]
-    videoid = got[0]["vidid"]
-    user = got[0]["by"]
-    title = (got[0]["title"]).title()
-    typo = (got[0]["streamtype"]).title()
-    DUR = get_duration(got)
-    if "live_" in file:
-        IMAGE = get_image(videoid)
-    elif "vid_" in file:
-        IMAGE = get_image(videoid)
-    elif "index_" in file:
-        IMAGE = config.STREAM_IMG_URL
-    else:
-        if videoid == "telegram":
-            IMAGE = (
-                config.TELEGRAM_AUDIO_URL
-                if typo == "Audio"
-                else config.TELEGRAM_VIDEO_URL
-            )
-        elif videoid == "soundcloud":
-            IMAGE = config.SOUNCLOUD_IMG_URL
+def _insert(chat_id, entry, forceplay):
+    if forceplay:
+        check = db.get(chat_id)
+        if check:
+            check.insert(0, entry)
         else:
-            IMAGE = get_image(videoid)
-    send = (
-        "**⌛️Duration:** Unknown Duration Stream\n\nClick on button below to get whole queued list."
-        if DUR == "Unknown"
-        else "\nClick on button below to get whole queued list."
-    )
-    cap = f"""**{config.MUSIC_BOT_NAME} Player**
-
-🎥**Playing:** {title}
-
-🔗**Stream Type:** {typo}
-🙍‍♂️**Played By:** {user}
-{send}"""
-    upl = (
-        queue_markup(_, DUR, "c" if cplay else "g", videoid)
-        if DUR == "Unknown"
-        else queue_markup(
-            _,
-            DUR,
-            "c" if cplay else "g",
-            videoid,
-            seconds_to_min(got[0]["played"]),
-            got[0]["dur"],
-        )
-    )
-    basic[videoid] = True
-    mystic = await message.reply_photo(
-        IMAGE, caption=cap, reply_markup=upl
-    )
-    if DUR != "Unknown":
-        try:
-            while db[chat_id][0]["vidid"] == videoid:
-                await asyncio.sleep(5)
-                if await is_active_chat(chat_id):
-                    if basic[videoid]:
-                        if await is_music_playing(chat_id):
-                            try:
-                                buttons = queue_markup(
-                                    _,
-                                    DUR,
-                                    "c" if cplay else "g",
-                                    videoid,
-                                    seconds_to_min(
-                                        db[chat_id][0]["played"]
-                                    ),
-                                    db[chat_id][0]["dur"],
-                                )
-                                await mystic.edit_reply_markup(
-                                    reply_markup=buttons
-                                )
-                            except FloodWait:
-                                pass
-                        else:
-                            pass
-                    else:
-                        break
-                else:
-                    break
-        except:
-            return
-
-
-@app.on_callback_query(filters.regex("GetTimer") & ~BANNED_USERS)
-async def quite_timer(client, CallbackQuery: CallbackQuery):
-    try:
-        await CallbackQuery.answer()
-    except:
-        pass
-
-
-@app.on_callback_query(filters.regex("GetQueued") & ~BANNED_USERS)
-@languageCB
-async def queued_tracks(client, CallbackQuery: CallbackQuery, _):
-    callback_data = CallbackQuery.data.strip()
-    callback_request = callback_data.split(None, 1)[1]
-    what, videoid = callback_request.split("|")
-    try:
-        chat_id, channel = await get_channeplayCB(
-            _, what, CallbackQuery
-        )
-    except:
-        return
-    if not await is_active_chat(chat_id):
-        return await CallbackQuery.answer(
-            _["general_6"], show_alert=True
-        )
-    got = db.get(chat_id)
-    if not got:
-        return await CallbackQuery.answer(
-            _["queue_2"], show_alert=True
-        )
-    if len(got) == 1:
-        return await CallbackQuery.answer(
-            _["queue_5"], show_alert=True
-        )
-    await CallbackQuery.answer()
-    basic[videoid] = False
-    buttons = queue_back_markup(_, what)
-    med = InputMediaPhoto(
-        media="https://telegra.ph//file/6f7d35131f69951c74ee5.jpg",
-        caption=_["queue_1"],
-    )
-    await CallbackQuery.edit_message_media(media=med)
-    j = 0
-    msg = ""
-    for x in got:
-        j += 1
-        if j == 1:
-            msg += f'Currently Playing:\n\n🏷Title: {x["title"]}\nDuration: {x["dur"]}\nBy: {x["by"]}\n\n'
-        elif j == 2:
-            msg += f'Queued:\n\n🏷Title: {x["title"]}\nDuration: {x["dur"]}\nBy: {x["by"]}\n\n'
-        else:
-            msg += f'🏷Title: {x["title"]}\nDuration: {x["dur"]}\nBy: {x["by"]}\n\n'
-    if "Queued" in msg:
-        if len(msg) < 700:
-            await asyncio.sleep(1)
-            return await CallbackQuery.edit_message_text(
-                msg, reply_markup=buttons
-            )
-        if "🏷" in msg:
-            msg = msg.replace("🏷", "")
-        link = await ArchMusicbin(msg)
-        med = InputMediaPhoto(
-            media=link, caption=_["queue_3"].format(link)
-        )
-        await CallbackQuery.edit_message_media(
-            media=med, reply_markup=buttons
-        )
+            db[chat_id] = [entry]
     else:
-        await asyncio.sleep(1)
-        return await CallbackQuery.edit_message_text(
-            msg, reply_markup=buttons
-        )
+        db[chat_id].append(entry)
 
 
-@app.on_callback_query(
-    filters.regex("queue_back_timer") & ~BANNED_USERS
-)
-@languageCB
-async def queue_back(client, CallbackQuery: CallbackQuery, _):
-    callback_data = CallbackQuery.data.strip()
-    cplay = callback_data.split(None, 1)[1]
+async def put_queue(
+    chat_id,
+    original_chat_id,
+    file,
+    title,
+    duration,
+    user,
+    vidid,
+    user_id,
+    stream,
+    forceplay: Union[bool, str] = None,
+):
+    title = title.title()
     try:
-        chat_id, channel = await get_channeplayCB(
-            _, cplay, CallbackQuery
-        )
-    except:
-        return
-    if not await is_active_chat(chat_id):
-        return await CallbackQuery.answer(
-            _["general_6"], show_alert=True
-        )
-    got = db.get(chat_id)
-    if not got:
-        return await CallbackQuery.answer(
-            _["queue_2"], show_alert=True
-        )
-    await CallbackQuery.answer(_["set_cb_8"], show_alert=True)
-    file = got[0]["file"]
-    videoid = got[0]["vidid"]
-    user = got[0]["by"]
-    title = (got[0]["title"]).title()
-    typo = (got[0]["streamtype"]).title()
-    DUR = get_duration(got)
-    if "live_" in file:
-        IMAGE = get_image(videoid)
-    elif "vid_" in file:
-        IMAGE = get_image(videoid)
-    elif "index_" in file:
-        IMAGE = config.STREAM_IMG_URL
-    else:
-        if videoid == "telegram":
-            IMAGE = (
-                config.TELEGRAM_AUDIO_URL
-                if typo == "Audio"
-                else config.TELEGRAM_VIDEO_URL
-            )
-        elif videoid == "soundcloud":
-            IMAGE = config.SOUNCLOUD_IMG_URL
-        else:
-            IMAGE = get_image(videoid)
-    send = (
-        "**⌛️Duration:** Unknown Duration Stream\n\nClick on button below to get whole queued list."
-        if DUR == "Unknown"
-        else "\nClick on button below to get whole queued list."
-    )
-    cap = f"""**{config.MUSIC_BOT_NAME} Player**
+        duration_in_seconds = time_to_seconds(duration) - 3
+    except Exception:
+        duration_in_seconds = 0
 
-🎥**Playing:** {title}
-
-🔗**Stream Type:** {typo}
-🙍‍♂️**Played By:** {user}
-{send}"""
-    upl = (
-        queue_markup(_, DUR, cplay, videoid)
-        if DUR == "Unknown"
-        else queue_markup(
-            _,
-            DUR,
-            cplay,
-            videoid,
-            seconds_to_min(got[0]["played"]),
-            got[0]["dur"],
-        )
+    entry = _build_entry(
+        original_chat_id, file, title, duration, user, vidid, stream, duration_in_seconds
     )
-    basic[videoid] = True
+    _insert(chat_id, entry, forceplay)
 
-    med = InputMediaPhoto(media=IMAGE, caption=cap)
-    mystic = await CallbackQuery.edit_message_media(
-        media=med, reply_markup=upl
+    autoclean.append(file)
+
+    stat_vidid = "telegram" if vidid == "soundcloud" else vidid
+    to_append = {"vidid": stat_vidid, "title": title}
+    chatstats.setdefault(chat_id, []).append(to_append)
+    userstats.setdefault(user_id, []).append(to_append)
+
+
+async def put_queue_index(
+    chat_id,
+    original_chat_id,
+    file,
+    title,
+    duration,
+    user,
+    vidid,
+    stream,
+    forceplay: Union[bool, str] = None,
+):
+    entry = _build_entry(
+        original_chat_id, file, title, duration, user, vidid, stream, 0
     )
-    if DUR != "Unknown":
-        try:
-            while db[chat_id][0]["vidid"] == videoid:
-                await asyncio.sleep(5)
-                if await is_active_chat(chat_id):
-                    if basic[videoid]:
-                        if await is_music_playing(chat_id):
-                            try:
-                                buttons = queue_markup(
-                                    _,
-                                    DUR,
-                                    cplay,
-                                    videoid,
-                                    seconds_to_min(
-                                        db[chat_id][0]["played"]
-                                    ),
-                                    db[chat_id][0]["dur"],
-                                )
-                                await mystic.edit_reply_markup(
-                                    reply_markup=buttons
-                                )
-                            except FloodWait:
-                                pass
-                        else:
-                            pass
-                    else:
-                        break
-                else:
-                    break
-        except:
-            return
+    _insert(chat_id, entry, forceplay)
