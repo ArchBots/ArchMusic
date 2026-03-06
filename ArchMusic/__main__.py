@@ -8,6 +8,9 @@
 # All rights reserved.
 
 import asyncio
+_loop = asyncio.new_event_loop()
+asyncio.set_event_loop(_loop)
+
 import importlib
 import sys
 
@@ -75,12 +78,10 @@ async def init():
 
 
 if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(init())
+        _loop.run_until_complete(init())
     except KeyboardInterrupt:
         pass
     finally:
-        loop.close()
+        _loop.close()
     LOGGER("ArchMusic").info("Stopping Arch Music Bot! GoodBye")
